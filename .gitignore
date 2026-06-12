@@ -14,7 +14,6 @@ out/
 .turbo/
 
 # ---- Ambiente / segredos ----
-# Ignora todos os .env (chaves de PSP, JWT, banco) e mantém só o exemplo
 .env
 .env.*
 !.env.example
@@ -43,5 +42,5 @@ logs/
 .DS_Store
 Thumbs.db
 
-# ---- Deploy (Vercel / Next) ----
+# ---- Deploy ----
 .vercel
