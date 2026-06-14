@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, Card, Switch } from "@/ds/components";
 import { Icon } from "@/ds/icons";
-import { CONFIG_PADRAO, type ConfigAgendamento } from "@/lib/settings";
+import { CONFIG_PADRAO, lerConfigSalva, salvarConfig, type ConfigAgendamento } from "@/lib/settings";
 
 // Cada opção vira uma linha com título + explicação do efeito no fluxo do cliente.
 function Opcao({
@@ -33,9 +33,19 @@ export default function Configuracoes() {
   const [cfg, setCfg] = useState<ConfigAgendamento>(CONFIG_PADRAO);
   const [salvo, setSalvo] = useState(false);
 
+  // localStorage só existe no cliente, então hidrata depois da montagem.
+  useEffect(() => {
+    setCfg(lerConfigSalva());
+  }, []);
+
   const set = (chave: keyof ConfigAgendamento) => (valor: boolean) => {
     setCfg((atual) => ({ ...atual, [chave]: valor }));
     setSalvo(false);
+  };
+
+  const salvar = () => {
+    salvarConfig(cfg);
+    setSalvo(true);
   };
 
   // Reaproveita a config para abrir o fluxo do cliente já no modo escolhido.
@@ -59,7 +69,7 @@ export default function Configuracoes() {
             <Link href={previewHref} target="_blank" className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Icon name="arrowRight" size={15} /> Pré-visualizar o fluxo do cliente
             </Link>
-            <Button variant="accent" size="sm" iconLeft={<Icon name="check" size={16} />} onClick={() => setSalvo(true)}>
+            <Button variant="accent" size="sm" iconLeft={<Icon name="check" size={16} />} onClick={salvar}>
               {salvo ? "Salvo" : "Salvar"}
             </Button>
           </div>

@@ -54,6 +54,8 @@
 .nr-field__affix{color:var(--text-muted);font-size:var(--text-sm);display:inline-flex;align-items:center;}
 .nr-field__hint{font-size:var(--text-xs);color:var(--text-muted);}
 .nr-field__hint--error{color:var(--red-text);}
+.nr-field__select{appearance:none;cursor:pointer;}
+.nr-field__select:disabled{cursor:not-allowed;}
 
 /* ===== Switch ===== */
 .nr-switch{display:inline-flex;align-items:center;gap:10px;font-family:var(--font-sans);cursor:pointer;user-select:none;}
@@ -153,3 +155,15 @@
 .nr-tab:focus-visible{outline:none;box-shadow:var(--shadow-focus);}
 .nr-tab__count{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);background:var(--stone-200);padding:1px 6px;border-radius:var(--radius-pill);}
 .nr-tab[aria-selected="true"] .nr-tab__count{background:var(--brass-100);color:var(--brass-700);}
+
+/* ===== Modal ===== */
+.nr-modal{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:var(--space-5);}
+.nr-modal__scrim{position:absolute;inset:0;background:rgba(20,16,13,.5);animation:nr-fade var(--dur-base) var(--ease-out);}
+.nr-modal__panel{position:relative;width:100%;max-width:460px;max-height:calc(100vh - 2*var(--space-5));display:flex;flex-direction:column;background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);animation:nr-pop var(--dur-base) var(--ease-out);}
+.nr-modal__head{display:flex;align-items:center;gap:12px;padding:18px var(--pad-card);border-bottom:1px solid var(--border-subtle);}
+.nr-modal__title{font-family:var(--font-display);font-weight:700;font-size:var(--text-md);color:var(--text-strong);letter-spacing:var(--tracking-snug);}
+.nr-modal__close{margin-left:auto;}
+.nr-modal__body{padding:var(--pad-card);overflow-y:auto;display:flex;flex-direction:column;gap:var(--space-4);}
+.nr-modal__foot{padding:14px var(--pad-card);border-top:1px solid var(--border-subtle);background:var(--bg-sunken);border-radius:0 0 var(--radius-lg) var(--radius-lg);display:flex;justify-content:flex-end;gap:10px;}
+@keyframes nr-fade{from{opacity:0;}to{opacity:1;}}
+@keyframes nr-pop{from{opacity:0;transform:translateY(8px) scale(.98);}to{opacity:1;transform:none;}}

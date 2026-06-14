@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Avatar, Badge, Button, Input, Money } from "@/ds/components";
 import { Icon } from "@/ds/icons";
 import { datas, horarios, profissionais, servicos } from "@/lib/mock-data";
-import { resolverConfig } from "@/lib/settings";
+import { CONFIG_PADRAO, lerConfigSalva, resolverConfig, type ConfigAgendamento } from "@/lib/settings";
 
 // "Qualquer" representa o primeiro disponível; os demais são a equipe real.
 const PROFS = ["Qualquer", ...profissionais.map((p) => p.apelido)];
@@ -46,10 +46,21 @@ function Nav({ title, passo, onBack }: { title: string; passo: string; onBack: (
 
 function FluxoCliente() {
   const params = useSearchParams();
-  const cfg = resolverConfig({
-    profissional: params.get("profissional") ?? undefined,
-    servico: params.get("servico") ?? undefined,
-  });
+  // Querystring = pré-visualização explícita do dono; sem ela, vale a config salva.
+  const temOverride = params.has("profissional") || params.has("servico");
+
+  const [cfg, setCfg] = useState<ConfigAgendamento>(() =>
+    temOverride
+      ? resolverConfig({
+          profissional: params.get("profissional") ?? undefined,
+          servico: params.get("servico") ?? undefined,
+        })
+      : CONFIG_PADRAO,
+  );
+
+  useEffect(() => {
+    if (!temOverride) setCfg(lerConfigSalva());
+  }, [temOverride]);
 
   // As etapas existentes dependem da configuração da barbearia.
   const etapas = useMemo<Etapa[]>(() => {

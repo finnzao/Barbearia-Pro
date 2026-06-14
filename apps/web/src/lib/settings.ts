@@ -1,10 +1,7 @@
-// Opções do fluxo de agendamento que o dono liga/desliga no painel.
-// Hoje vivem aqui como padrão; quando o backend existir, viram colunas em
-// `config_barbearia` lidas pela API e escopadas por barbearia_id.
+
 export interface ConfigAgendamento {
-  // Cliente escolhe qual profissional vai cortar (senão, "primeiro disponível").
   clienteEscolheProfissional: boolean;
-  // Cliente escolhe o serviço antes de marcar o horário (senão, define no balcão).
+
   clienteEscolheServico: boolean;
 }
 
@@ -23,4 +20,24 @@ export function resolverConfig(searchParams?: Record<string, string | undefined>
     clienteEscolheProfissional: flag(searchParams.profissional, CONFIG_PADRAO.clienteEscolheProfissional),
     clienteEscolheServico: flag(searchParams.servico, CONFIG_PADRAO.clienteEscolheServico),
   };
+}
+
+// Persistência provisória no navegador enquanto não há backend. Quando a API
+// existir, estas duas funções viram GET/PUT em `config_barbearia`.
+const CHAVE_CONFIG = "naregua:config-agendamento";
+
+export function lerConfigSalva(): ConfigAgendamento {
+  if (typeof window === "undefined") return CONFIG_PADRAO;
+  try {
+    const cru = window.localStorage.getItem(CHAVE_CONFIG);
+    if (!cru) return CONFIG_PADRAO;
+    return { ...CONFIG_PADRAO, ...JSON.parse(cru) };
+  } catch {
+    return CONFIG_PADRAO;
+  }
+}
+
+export function salvarConfig(cfg: ConfigAgendamento): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(CHAVE_CONFIG, JSON.stringify(cfg));
 }

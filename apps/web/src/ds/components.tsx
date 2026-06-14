@@ -4,7 +4,9 @@ import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
   ReactNode,
+  SelectHTMLAttributes,
 } from "react";
+import { Icon } from "./icons";
 
 const cx = (...parts: (string | false | null | undefined)[]) =>
   parts.filter(Boolean).join(" ");
@@ -111,6 +113,55 @@ export function Input({
           {...rest}
         />
         {suffix && <span className="nr-field__affix">{suffix}</span>}
+      </div>
+      {(hint || error) && (
+        <span className={cx("nr-field__hint", error && "nr-field__hint--error")}>{error || hint}</span>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Select ---------------- */
+type SelectOption = { value: string; label: string };
+type SelectProps = {
+  label?: string;
+  hint?: string;
+  error?: string;
+  size?: "sm" | "md" | "lg";
+  options: SelectOption[];
+  placeholder?: string;
+} & Omit<SelectHTMLAttributes<HTMLSelectElement>, "size">;
+
+export function Select({
+  label,
+  hint,
+  error,
+  size = "md",
+  options,
+  placeholder,
+  required,
+  disabled,
+  id,
+  className = "",
+  ...rest
+}: SelectProps) {
+  const fid = id || (label ? "nr-" + label.toLowerCase().replace(/\s+/g, "-") : undefined);
+  return (
+    <div className={cx("nr-field", className)}>
+      {label && (
+        <label className="nr-field__label" htmlFor={fid}>
+          {label}
+          {required && <span className="nr-req">*</span>}
+        </label>
+      )}
+      <div className={cx("nr-field__wrap", `nr-field__wrap--${size}`, error && "nr-field__wrap--error", disabled && "nr-field__wrap--disabled")}>
+        <select id={fid} className="nr-field__input nr-field__select" disabled={disabled} aria-invalid={error ? "true" : undefined} {...rest}>
+          {placeholder && <option value="">{placeholder}</option>}
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <span className="nr-field__affix"><Icon name="chevronDown" size={16} /></span>
       </div>
       {(hint || error) && (
         <span className={cx("nr-field__hint", error && "nr-field__hint--error")}>{error || hint}</span>
@@ -376,6 +427,37 @@ export function Tabs({ items, value, onChange, fullWidth = false, className = ""
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/* ---------------- Modal ---------------- */
+// Controlado pelo pai (open/onClose); sem hooks aqui para o módulo do DS seguir
+// importável por Server Components.
+type ModalProps = {
+  open: boolean;
+  onClose: () => void;
+  title?: ReactNode;
+  footer?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+};
+
+export function Modal({ open, onClose, title, footer, children, className = "" }: ModalProps) {
+  if (!open) return null;
+  return (
+    <div className="nr-modal" role="dialog" aria-modal="true">
+      <div className="nr-modal__scrim" onClick={onClose} />
+      <div className={cx("nr-modal__panel", className)}>
+        <div className="nr-modal__head">
+          {title && <span className="nr-modal__title">{title}</span>}
+          <IconButton label="Fechar" variant="ghost" size="sm" className="nr-modal__close" onClick={onClose}>
+            <Icon name="x" size={18} />
+          </IconButton>
+        </div>
+        <div className="nr-modal__body">{children}</div>
+        {footer && <div className="nr-modal__foot">{footer}</div>}
+      </div>
     </div>
   );
 }
