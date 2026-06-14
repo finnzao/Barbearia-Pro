@@ -1,0 +1,239 @@
+/* NaRegua - tokens (gerado a partir do design system). Fontes via <link> no layout. */
+
+/* ===== tokens/colors.css ===== */
+/* NaRégua — Color tokens
+ * Base: warm neutral "stone" (browned grays, never cool blue-gray)
+ * Accent: brass / amber (barbershop tools & fixtures)
+ * Signature: barber-pole red / white / blue (used sparingly)
+ * All text/background pairings target WCAG AA (4.5:1 body, 3:1 large).
+ */
+:root {
+  /* ---- Neutral: warm stone scale ---- */
+  --stone-50:  #FAF8F5;
+  --stone-100: #F3EFE9;
+  --stone-200: #E7E0D6;
+  --stone-300: #D5CABB;
+  --stone-400: #B2A595;
+  --stone-500: #897C6C;
+  --stone-600: #6A5E50;
+  --stone-700: #4D433A;
+  --stone-800: #322B25;
+  --stone-900: #211C18;
+  --stone-950: #14100D;
+
+  /* ---- Accent: brass / amber ---- */
+  --brass-50:  #FBF3E0;
+  --brass-100: #F6E5BD;
+  --brass-200: #EECC83;
+  --brass-300: #E1AF4F;
+  --brass-400: #CD9531;
+  --brass-500: #B07A20;
+  --brass-600: #8C601A;
+  --brass-700: #6B4914;
+  --brass-800: #4C340F;
+
+  /* ---- Barber-pole signature ---- */
+  --pole-red:   #C2362F;
+  --pole-blue:  #234A8C;
+  --pole-white: #FAF8F5;
+
+  /* ---- Status hues (warm-tuned) ---- */
+  /* Confirmado — blue (echoes the pole) */
+  --blue-bg:   #E6ECF7;
+  --blue-line: #C2D0EC;
+  --blue-text: #284E8E;
+  /* Concluído — green */
+  --green-bg:   #E3F0E6;
+  --green-line: #BFDDC7;
+  --green-text: #1F6B41;
+  /* Cancelado — red */
+  --red-bg:   #F8E7E4;
+  --red-line: #EEC8C2;
+  --red-text: #9E2F28;
+  /* Pendente — ochre/amber */
+  --amber-bg:   #F8ECCF;
+  --amber-line: #ECD49A;
+  --amber-text: #7A4E0E;
+
+  /* ===== Semantic aliases ===== */
+  --bg-page:        var(--stone-50);
+  --bg-sunken:      var(--stone-100);
+  --surface-card:   #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --surface-inverse: var(--stone-900);
+
+  --border-subtle:  var(--stone-200);
+  --border-default: var(--stone-300);
+  --border-strong:  var(--stone-400);
+
+  --text-strong:  var(--stone-900);
+  --text-body:    var(--stone-700);
+  --text-muted:   var(--stone-500);
+  --text-inverse: var(--stone-50);
+  --text-on-accent: var(--stone-950);
+
+  --accent:        var(--brass-500);
+  --accent-strong: var(--brass-600);
+  --accent-soft:   var(--brass-50);
+
+  /* Primary action = confident charcoal, brass reserved for highlights */
+  --primary:        var(--stone-900);
+  --primary-hover:  var(--stone-800);
+  --primary-text:   var(--stone-50);
+
+  --focus-ring: var(--brass-400);
+
+  /* Money / ledger ink */
+  --ledger-ink:    var(--stone-900);
+  --ledger-credit: var(--green-text);
+  --ledger-debit:  var(--red-text);
+}
+
+/* ===== tokens/typography.css ===== */
+/* NaRégua — Typography tokens */
+:root {
+  --font-display: 'Bricolage Grotesque', 'Archivo', system-ui, sans-serif;
+  --font-sans:    'Archivo', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Weights */
+  --fw-regular: 400;  /* @kind font */
+  --fw-medium:  500;  /* @kind font */
+  --fw-semibold: 600; /* @kind font */
+  --fw-bold:    700;  /* @kind font */
+  --fw-black:   800;  /* @kind font */
+
+  /* Type scale (1.20 minor-third-ish, tuned) */
+  --text-2xs: 11px;
+  --text-xs:  12px;
+  --text-sm:  13px;
+  --text-base: 15px;
+  --text-md:  17px;
+  --text-lg:  20px;
+  --text-xl:  24px;
+  --text-2xl: 30px;
+  --text-3xl: 38px;
+  --text-4xl: 48px;
+  --text-5xl: 60px;
+  --text-6xl: 76px;
+
+  /* Line heights */
+  --leading-tight: 1.08;
+  --leading-snug:  1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* Letter spacing */
+  --tracking-tight: -0.02em;
+  --tracking-snug:  -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:  0.04em;
+  --tracking-caps:  0.08em;
+
+  /* Semantic roles */
+  --display-font: var(--font-display);
+  --display-weight: var(--fw-black);
+  --display-tracking: var(--tracking-tight);
+
+  --heading-font: var(--font-display);
+  --heading-weight: var(--fw-bold);
+
+  --body-font: var(--font-sans);
+  --body-weight: var(--fw-regular);
+
+  --label-font: var(--font-sans);
+  --label-weight: var(--fw-semibold);
+
+  --mono-font: var(--font-mono);
+  --mono-tracking: -0.01em;
+
+  /* Eyebrow / overline */
+  --eyebrow-tracking: var(--tracking-caps);
+  --eyebrow-weight: var(--fw-bold);
+}
+
+/* ===== tokens/spacing.css ===== */
+/* NaRégua — Spacing tokens (4px base grid) */
+:root {
+  --space-0:  0;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  8px;
+  --space-4:  12px;
+  --space-5:  16px;
+  --space-6:  20px;
+  --space-7:  24px;
+  --space-8:  32px;
+  --space-9:  40px;
+  --space-10: 48px;
+  --space-11: 64px;
+  --space-12: 80px;
+  --space-13: 96px;
+  --space-14: 128px;
+
+  /* Component rhythm */
+  --gap-inline: var(--space-3);
+  --gap-stack:  var(--space-5);
+  --pad-card:   var(--space-7);
+  --pad-control: var(--space-4);
+
+  /* Layout */
+  --container-max: 1200px;
+  --gutter: var(--space-8);
+  --sidebar-w: 248px;
+}
+
+/* ===== tokens/radius.css ===== */
+/* NaRégua — Radius tokens */
+:root {
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;   /* default control / card-inner */
+  --radius-lg: 14px;   /* cards */
+  --radius-xl: 20px;   /* sheets, large surfaces */
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
+  --radius-circle: 50%;
+}
+
+/* ===== tokens/shadows.css ===== */
+/* NaRégua — Elevation tokens
+ * Warm-tinted shadows (brown ink, never pure black) to sit in the stone world.
+ */
+:root {
+  --shadow-xs: 0 1px 2px rgba(33, 28, 24, 0.06);
+  --shadow-sm: 0 1px 2px rgba(33, 28, 24, 0.06), 0 1px 3px rgba(33, 28, 24, 0.08);
+  --shadow-md: 0 2px 4px rgba(33, 28, 24, 0.05), 0 4px 12px rgba(33, 28, 24, 0.09);
+  --shadow-lg: 0 4px 8px rgba(33, 28, 24, 0.06), 0 12px 28px rgba(33, 28, 24, 0.12);
+  --shadow-xl: 0 8px 16px rgba(33, 28, 24, 0.08), 0 24px 56px rgba(33, 28, 24, 0.16);
+
+  /* Brass focus glow */
+  --shadow-focus: 0 0 0 3px rgba(205, 149, 49, 0.35);
+
+  /* Inset for sunken fields / ledger strips */
+  --shadow-inset: inset 0 1px 2px rgba(33, 28, 24, 0.08);
+}
+
+/* ===== tokens/motion.css ===== */
+/* NaRégua — Motion tokens
+ * Quick, grounded, no bounce. Things settle like a chair, not a spring.
+ */
+:root {
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);   /* @kind other */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);        /* @kind other */
+
+  --dur-fast: 120ms; /* @kind other */
+  --dur-base: 180ms; /* @kind other */
+  --dur-slow: 280ms; /* @kind other */
+
+  --press-scale: 0.97; /* @kind other */
+}
+
+/* Liga as fontes carregadas via next/font (no layout) aos tokens do DS.
+   Fica por último de propósito: sobrescreve as famílias declaradas acima. */
+:root {
+  --font-sans:    var(--nr-archivo), system-ui, -apple-system, sans-serif;
+  --font-display: var(--nr-bricolage), var(--nr-archivo), system-ui, sans-serif;
+  --font-mono:    var(--nr-mono), ui-monospace, "SFMono-Regular", monospace;
+}

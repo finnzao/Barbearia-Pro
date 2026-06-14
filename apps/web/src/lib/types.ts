@@ -1,9 +1,4 @@
-export type StatusAgendamento =
-  | "confirmado"
-  | "concluido"
-  | "cancelado"
-  | "pendente";
-
+export type StatusAgendamento = "confirmado" | "concluido" | "cancelado" | "pendente";
 export type Periodo = "dia" | "semana" | "mes";
 
 export interface Profissional {
@@ -11,7 +6,6 @@ export interface Profissional {
   nome: string;
   apelido: string;
   comissaoPercent: number; // 0..1
-  iniciais: string;
 }
 
 export interface Servico {
@@ -23,7 +17,7 @@ export interface Servico {
 
 export interface Agendamento {
   id: string;
-  hora: string; // "09:30"
+  hora: string;
   cliente: string;
   servico: string;
   profissionalId: string;
@@ -49,4 +43,21 @@ export interface ResumoHoje {
   comissoesApagar: number;
   proximos: Agendamento[];
   comissoes: ComissaoProfissional[];
+}
+
+export interface CortesDia {
+  dia: string;
+  cortes: number;
+  faturamento: number;
+}
+
+export interface FaixaHora {
+  hora: string;
+  cortes: number;
+}
+
+export interface DiaOcupacao {
+  dia: number; // dia do mês (1..31)
+  cortes: number;
+  capacidade: number;
 }

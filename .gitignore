@@ -1,46 +1,22 @@
-# ---- Dependências ----
+# Dependências
 node_modules/
 .pnpm-store/
-pnpm-debug.log*
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# ---- Saídas de build ----
-dist/
-build/
-out/
+# Builds
 .next/
+dist/
 .turbo/
+out/
 
-# ---- Ambiente / segredos ----
+# Ambiente
 .env
-.env.*
+.env.local
+.env.*.local
 !.env.example
 
-# ---- TypeScript ----
-*.tsbuildinfo
-apps/web/next-env.d.ts
-
-# ---- Testes / cobertura ----
-coverage/
-.nyc_output/
-
-# ---- Caches ----
-.cache/
-.eslintcache
-
-# ---- Logs ----
-logs/
-*.log
-
-# ---- Editor / SO ----
-.vscode/*
-!.vscode/extensions.json
-.idea/
-*.swp
+# Sistema / editor
 .DS_Store
-Thumbs.db
-
-# ---- Deploy ----
-.vercel
+*.log
+npm-debug.log*
+.vscode/
+.idea/

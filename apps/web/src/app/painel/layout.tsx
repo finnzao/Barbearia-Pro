@@ -1,16 +1,11 @@
 import { Sidebar } from "@/components/sidebar";
+import "./painel.css";
 
-export default function PainelLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function PainelLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className="shell">
       <Sidebar />
-      <main className="flex-1 px-4 py-6 sm:px-8 sm:py-8">
-        <div className="mx-auto w-full max-w-5xl">{children}</div>
-      </main>
+      <main className="content">{children}</main>
     </div>
   );
 }

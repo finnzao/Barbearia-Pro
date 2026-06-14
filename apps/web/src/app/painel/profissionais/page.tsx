@@ -1,38 +1,33 @@
-import { PageHeader } from "@/components/page-header";
-import { getProfissionais } from "@/lib/api";
+import { Avatar, Badge, Button, Card, ListItem } from "@/ds/components";
+import { Icon } from "@/ds/icons";
 import { pct } from "@/lib/format";
+import { profissionais } from "@/lib/mock-data";
 
-export default async function ProfissionaisPage() {
-  const lista = await getProfissionais();
-
+export default function Profissionais() {
   return (
-    <div>
-      <PageHeader titulo="Profissionais" descricao="Equipe da barbearia" />
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {lista.map((p) => (
-          <div
-            key={p.id}
-            className="flex items-center gap-4 rounded-xl border border-stone-200 bg-white p-4"
-          >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 font-semibold text-amber-800">
-              {p.iniciais}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-stone-900">
-                {p.nome}
-              </p>
-              <p className="text-xs text-stone-500">{p.apelido}</p>
-            </div>
-            <div className="text-right">
-              <p className="font-mono text-sm font-semibold tabular-nums text-stone-900">
-                {pct(p.comissaoPercent)}
-              </p>
-              <p className="text-[11px] text-stone-500">comissão</p>
-            </div>
-          </div>
-        ))}
+    <div className="stack">
+      <div className="page-head row-between">
+        <div>
+          <h1 className="page-title">Profissionais</h1>
+          <p className="page-sub">{profissionais.length} na equipe</p>
+        </div>
+        <Button variant="primary" iconLeft={<Icon name="plus" size={18} />}>Adicionar</Button>
       </div>
+
+      <Card>
+        <div>
+          {profissionais.map((p) => (
+            <ListItem
+              key={p.id}
+              leading={<Avatar name={p.nome} status="online" />}
+              title={p.nome}
+              subtitle={`Comissão ${pct(p.comissaoPercent)}`}
+              trailing={<Badge tone="neutral" size="sm">Ativo</Badge>}
+              divided
+            />
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }

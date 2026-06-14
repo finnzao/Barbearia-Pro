@@ -1,0 +1,11 @@
+<svg width="468" height="132" viewBox="0 0 468 132" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="NaRégua">
+  <text x="6" y="80" font-family="&#39;Bricolage Grotesque&#39;,&#39;Archivo&#39;,sans-serif" font-weight="800" font-size="76" letter-spacing="-2" fill="#211C18">NaRégua</text>
+  
+  <g>
+    <rect x="8" y="100" width="430" height="9" rx="2" fill="#FAF8F5"></rect>
+    <rect x="8" y="100" width="143" height="9" fill="#C2362F"></rect>
+    <rect x="151" y="100" width="143" height="9" fill="#FAF8F5"></rect>
+    <rect x="294" y="100" width="144" height="9" fill="#234A8C"></rect>
+    <rect x="8" y="100" width="430" height="9" rx="2" fill="none" stroke="#211C18" stroke-opacity="0.12"></rect>
+  </g>
+</svg>

@@ -1,38 +1,46 @@
-import { PageHeader } from "@/components/page-header";
-import { StatusBadge } from "@/components/status-badge";
-import { getAgendamentos } from "@/lib/api";
-import { brl } from "@/lib/format";
+import { Avatar, Badge, Button, Card, ListItem, Money } from "@/ds/components";
+import { Icon } from "@/ds/icons";
+import { agendamentos } from "@/lib/mock-data";
 
-export default async function AgendaPage() {
-  const lista = await getAgendamentos();
+const railPorStatus: Record<string, string> = {
+  concluido: "var(--green-line)",
+  confirmado: "var(--blue-line)",
+  pendente: "var(--amber-line)",
+  cancelado: "var(--red-line)",
+};
 
+export default function Agenda() {
   return (
-    <div>
-      <PageHeader titulo="Agenda" descricao="Atendimentos de hoje" />
-
-      <div className="overflow-hidden rounded-xl border border-stone-200 bg-white">
-        <ul className="divide-y divide-stone-100">
-          {lista.map((a) => (
-            <li key={a.id} className="flex items-center gap-4 px-4 py-4 sm:px-5">
-              <span className="font-mono text-sm font-semibold tabular-nums text-stone-900">
-                {a.hora}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-stone-900">
-                  {a.cliente}
-                </p>
-                <p className="truncate text-xs text-stone-500">
-                  {a.servico} · {a.profissional}
-                </p>
-              </div>
-              <span className="hidden font-mono text-sm tabular-nums text-stone-700 sm:block">
-                {brl(a.preco)}
-              </span>
-              <StatusBadge status={a.status} />
-            </li>
-          ))}
-        </ul>
+    <div className="stack">
+      <div className="page-head row-between">
+        <div>
+          <h1 className="page-title">Agenda</h1>
+          <p className="page-sub">Sexta · 13 jun 2026</p>
+        </div>
+        <Button variant="primary" iconLeft={<Icon name="plus" size={18} />}>Novo agendamento</Button>
       </div>
+
+      <Card title="Hoje" action={<span className="muted">{agendamentos.length} horários</span>}>
+        <div>
+          {agendamentos.map((a) => (
+            <ListItem
+              key={a.id}
+              time={a.hora}
+              railColor={railPorStatus[a.status]}
+              leading={<Avatar name={a.cliente} size="sm" />}
+              title={a.cliente}
+              subtitle={`${a.servico} · ${a.profissional}`}
+              trailing={
+                <>
+                  <Money value={a.preco} size="sm" tone={a.status === "cancelado" ? "muted" : "default"} />
+                  <Badge status={a.status} size="sm" />
+                </>
+              }
+              divided
+            />
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }
