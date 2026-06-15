@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, Card, Switch } from "@/ds/components";
 import { Icon } from "@/ds/icons";
+import { HorarioFuncionamento } from "@/components/horario-funcionamento";
 import { CONFIG_PADRAO, lerConfigSalva, salvarConfig, type ConfigAgendamento } from "@/lib/settings";
 
-// Cada opção vira uma linha com título + explicação do efeito no fluxo do cliente.
 function Opcao({
   titulo,
   descricao,
@@ -89,6 +89,10 @@ export default function Configuracoes() {
             onChange={set("clienteEscolheServico")}
           />
         </div>
+      </Card>
+
+      <Card title="Horário de funcionamento">
+        <HorarioFuncionamento />
       </Card>
     </div>
   );

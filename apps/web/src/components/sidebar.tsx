@@ -6,22 +6,39 @@ import { useState } from "react";
 import { Icon, type IconName } from "@/ds/icons";
 import { IconButton } from "@/ds/components";
 
-const LINKS: { href: string; label: string; icon: IconName }[] = [
-  { href: "/painel", label: "Visão geral", icon: "grid" },
-  { href: "/painel/agenda", label: "Agenda", icon: "clock" },
-  { href: "/painel/calendario", label: "Calendário", icon: "calendar" },
-  { href: "/painel/analise", label: "Análise", icon: "trendingUp" },
-  { href: "/painel/comissoes", label: "Comissões", icon: "banknote" },
-  { href: "/painel/profissionais", label: "Profissionais", icon: "users" },
-  { href: "/painel/servicos", label: "Serviços", icon: "scissors" },
-  { href: "/painel/configuracoes", label: "Configurações", icon: "settings" },
+type Item = { href: string; label: string; icon: IconName };
+type Secao = { titulo?: string; itens: Item[] };
+
+const SECOES: Secao[] = [
+  { itens: [{ href: "/painel", label: "Visão geral", icon: "grid" }] },
+  {
+    titulo: "Operação",
+    itens: [
+      { href: "/painel/agenda", label: "Agenda", icon: "clock" },
+      { href: "/painel/calendario", label: "Calendário", icon: "calendar" },
+      { href: "/painel/cobranca", label: "Gerar Pix", icon: "qr" },
+    ],
+  },
+  {
+    titulo: "Gestão",
+    itens: [
+      { href: "/painel/pagamentos", label: "Pagamentos", icon: "banknote" },
+      { href: "/painel/profissionais", label: "Profissionais", icon: "users" },
+      { href: "/painel/servicos", label: "Serviços", icon: "scissors" },
+    ],
+  },
+  {
+    titulo: "Análise",
+    itens: [{ href: "/painel/analise", label: "Análise", icon: "trendingUp" }],
+  },
+  { itens: [{ href: "/painel/configuracoes", label: "Configurações", icon: "settings" }] },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  // Considera ativo o link mais específico que prefixa a rota atual.
+  // Ativo = link mais específico que prefixa a rota atual.
   const isActive = (href: string) =>
     href === "/painel" ? pathname === "/painel" : pathname.startsWith(href);
 
@@ -44,16 +61,21 @@ export function Sidebar() {
         <div className="sidebar__pole" />
 
         <nav className="sidebar__nav">
-          {LINKS.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={isActive(l.href) ? "navlink navlink--active" : "navlink"}
-              onClick={() => setOpen(false)}
-            >
-              <Icon name={l.icon} size={18} />
-              {l.label}
-            </Link>
+          {SECOES.map((secao, i) => (
+            <div key={secao.titulo ?? `s${i}`} className="sidebar__group">
+              {secao.titulo && <span className="sidebar__section">{secao.titulo}</span>}
+              {secao.itens.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={isActive(l.href) ? "navlink navlink--active" : "navlink"}
+                  onClick={() => setOpen(false)}
+                >
+                  <Icon name={l.icon} size={18} />
+                  {l.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
 
