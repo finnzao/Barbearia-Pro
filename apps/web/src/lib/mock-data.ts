@@ -4,19 +4,17 @@ import type {
   CortesDia,
   DiaOcupacao,
   FaixaHora,
+  Pagamento,
   Periodo,
   Profissional,
   ResumoHoje,
   Servico,
 } from "./types";
 
-// Provisório enquanto não há backend. Quando a API do Nest existir, estas
-// funções viram chamadas fetch e os componentes não mudam.
-
 export const profissionais: Profissional[] = [
-  { id: "p1", nome: "Téo Andrade", apelido: "Téo", comissaoPercent: 0.5 },
-  { id: "p2", nome: "Rafael Lima", apelido: "Rafa", comissaoPercent: 0.45 },
-  { id: "p3", nome: "Bruno Souza", apelido: "Bruno", comissaoPercent: 0.4 },
+  { id: "p1", nome: "Téo Andrade", apelido: "Téo", comissaoPercent: 0.5, chavePix: "teo.andrade@pix.com", pixTipoChave: "email" },
+  { id: "p2", nome: "Rafael Lima", apelido: "Rafa", comissaoPercent: 0.45, chavePix: "rafael.lima@pix.com", pixTipoChave: "email" },
+  { id: "p3", nome: "Bruno Souza", apelido: "Bruno", comissaoPercent: 0.4, chavePix: "11999990003", pixTipoChave: "telefone" },
 ];
 
 export const servicos: Servico[] = [
@@ -38,7 +36,15 @@ export const agendamentos: Agendamento[] = [
   { id: "a8", hora: "17:00", cliente: "Lucas F.", servico: "Barba terapia", profissionalId: "p2", profissional: "Rafa", preco: 50, status: "cancelado" },
 ];
 
-// ----- Dados do fluxo de agendamento (cliente) -----
+export const pagamentos: Pagamento[] = [
+  { id: "pg1", profissionalId: "p1", profissional: "Téo", agendamentoId: "a1", servico: "Corte + barba", valor: 80, comissaoPercent: 0.5, metodo: "pix_dinamico", status: "pago", pagoEm: "2026-06-13T09:05:00Z" },
+  { id: "pg2", profissionalId: "p2", profissional: "Rafa", agendamentoId: "a2", servico: "Corte máquina", valor: 45, comissaoPercent: 0.45, metodo: "cartao", status: "pago", pagoEm: "2026-06-13T09:50:00Z" },
+  { id: "pg3", profissionalId: "p1", profissional: "Téo", agendamentoId: "a4", servico: "Corte tesoura", valor: 70, comissaoPercent: 0.5, metodo: "pix_estatico", status: "pago", pagoEm: "2026-06-13T11:20:00Z" },
+  { id: "pg-av1", profissionalId: "p2", profissional: "Rafa", agendamentoId: null, servico: "Pézinho", valor: 20, comissaoPercent: 0.45, metodo: "pix_estatico", status: "pago", pagoEm: "2026-06-13T12:10:00Z" },
+  { id: "pg-din1", profissionalId: "p3", profissional: "Bruno", agendamentoId: null, servico: "Acabamento", valor: 40, comissaoPercent: 0.4, metodo: "dinheiro", status: "pago", pagoEm: "2026-06-13T13:30:00Z" },
+  { id: "pg-din2", profissionalId: "p3", profissional: "Bruno", agendamentoId: "a3", servico: "Barba terapia", valor: 50, comissaoPercent: 0.4, metodo: "dinheiro", status: "pendente", pagoEm: null },
+];
+
 export const datas = [
   { dw: "Hoje", dd: "13" },
   { dw: "Sáb", dd: "14" },
@@ -47,24 +53,24 @@ export const datas = [
   { dw: "Qua", dd: "18" },
 ];
 
-// [horário, disponível?]
 export const horarios: [string, boolean][] = [
   ["09:00", true], ["09:45", false], ["10:30", true],
   ["11:15", true], ["14:00", false], ["14:45", true],
   ["15:30", true], ["16:15", true], ["17:00", false],
 ];
 
-function calcComissoes(lista: Agendamento[]): ComissaoProfissional[] {
+export function comissoesDerivadas(lista: Pagamento[]): ComissaoProfissional[] {
   return profissionais.map((p) => {
-    const dele = lista.filter((a) => a.profissionalId === p.id && a.status !== "cancelado");
-    const faturado = dele.reduce((soma, a) => soma + a.preco, 0);
+    const pagos = lista.filter((pg) => pg.profissionalId === p.id && pg.status === "pago");
+    const faturado = pagos.reduce((s, pg) => s + pg.valor, 0);
+    const comissao = pagos.reduce((s, pg) => s + Math.round(pg.valor * pg.comissaoPercent), 0);
     return {
       profissionalId: p.id,
       profissional: p.apelido,
-      atendimentos: dele.length,
+      atendimentos: pagos.length,
       faturado,
       comissaoPercent: p.comissaoPercent,
-      comissao: Math.round(faturado * p.comissaoPercent),
+      comissao,
     };
   });
 }
@@ -73,7 +79,7 @@ const fator: Record<Periodo, number> = { dia: 1, semana: 6, mes: 26 };
 
 export function comissoesPorPeriodo(periodo: Periodo): ComissaoProfissional[] {
   const f = fator[periodo];
-  return calcComissoes(agendamentos).map((c) => ({
+  return comissoesDerivadas(pagamentos).map((c) => ({
     ...c,
     atendimentos: c.atendimentos * f,
     faturado: c.faturado * f,
@@ -82,23 +88,20 @@ export function comissoesPorPeriodo(periodo: Periodo): ComissaoProfissional[] {
 }
 
 export function resumoHoje(): ResumoHoje {
-  const validos = agendamentos.filter((a) => a.status !== "cancelado");
-  const faturamento = validos.reduce((soma, a) => soma + a.preco, 0);
-  const comissoes = calcComissoes(agendamentos);
+  const pagos = pagamentos.filter((pg) => pg.status === "pago");
+  const faturamento = pagos.reduce((s, pg) => s + pg.valor, 0);
+  const comissoes = comissoesDerivadas(pagamentos);
   return {
     data: new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" }),
     faturamento,
-    atendimentos: validos.length,
-    ticketMedio: validos.length ? Math.round(faturamento / validos.length) : 0,
+    atendimentos: pagos.length,
+    ticketMedio: pagos.length ? Math.round(faturamento / pagos.length) : 0,
     comissoesApagar: comissoes.reduce((soma, c) => soma + c.comissao, 0),
     proximos: agendamentos.filter((a) => a.status === "confirmado" || a.status === "pendente"),
     comissoes,
   };
 }
 
-// ===== Painel analítico =====
-
-// Distribuição típica de uma barbearia: forte no fim de semana, fraca no início.
 const CORTES_SEMANA: CortesDia[] = [
   { dia: "Seg", cortes: 9, faturamento: 560 },
   { dia: "Ter", cortes: 14, faturamento: 910 },
@@ -127,7 +130,6 @@ export function analiseSemana(): AnaliseSemana {
   };
 }
 
-// Concentração de cortes por faixa de horário (ajuda a dimensionar a equipe).
 export function cortesPorHora(): FaixaHora[] {
   return [
     { hora: "09h", cortes: 6 },
@@ -144,16 +146,13 @@ export function cortesPorHora(): FaixaHora[] {
   ];
 }
 
-// ===== Calendário (ocupação do mês) =====
+const CAPACIDADE_DIA = 16;
 
-const CAPACIDADE_DIA = 16; // horários ofertados por dia
-
-// Hash determinístico por dia -> ocupação estável (sem divergência de hidratação).
 function ocupacaoDoDia(ano: number, mes: number, dia: number): number {
-  const dow = new Date(ano, mes, dia).getDay(); // 0 = domingo
-  if (dow === 0) return 0; // fechado aos domingos
+  const dow = new Date(ano, mes, dia).getDay();
+  if (dow === 0) return 0;
   const base = dow === 6 ? 14 : dow === 5 ? 12 : dow === 1 ? 4 : 8;
-  const ruido = (dia * 7 + mes * 13) % 5; // -2..+2 de variação
+  const ruido = (dia * 7 + mes * 13) % 5;
   return Math.max(0, Math.min(CAPACIDADE_DIA, base + (ruido - 2)));
 }
 
@@ -165,7 +164,6 @@ export function ocupacaoMes(ano: number, mes: number): DiaOcupacao[] {
   });
 }
 
-// Lista de horários de um dia com o que está ocupado, derivada da ocupação.
 export function slotsDoDia(ano: number, mes: number, dia: number): [string, boolean][] {
   const ocupados = ocupacaoDoDia(ano, mes, dia);
   return horarios.map(([hora], idx) => [hora, idx < ocupados]);

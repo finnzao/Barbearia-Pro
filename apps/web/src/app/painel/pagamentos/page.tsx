@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Avatar, Badge, Button, Card, ListItem, Modal, Money, Select, Switch, Tabs } from "@/ds/components";
-import { Icon } from "@/ds/icons";
-import { pct } from "@/lib/format";
-import { agendamentos, comissoesPorPeriodo, profissionais } from "@/lib/mock-data";
-import { CHAVES_PIX, gradeQr, pixEstatico } from "@/lib/pix";
+import { Glyph } from "@/app/painel/glyphs";
+import { Avatar, Badge, Btn, Card, Money, Modal, Row, Seg, Select, brl, pct } from "@/app/painel/ui";
+import { comissoesDerivadas, pagamentos as pagamentosIniciais, profissionais } from "@/lib/mock-data";
+import { CHAVE_CENTRAL, gradeQr, MARCADOR_PROF, NOME_RECEBEDOR, pixEstaticoBalcao } from "@/lib/pix";
 import {
   CONFIG_REPASSE_PADRAO,
   lerRepasse,
@@ -14,32 +13,38 @@ import {
   salvarRepasse,
   type ConfigRepasse,
   type FrequenciaRepasse,
+  type ModoRepasse,
   type OrigemRepasse,
   type Repasse,
   type StatusRepasse,
 } from "@/lib/repasse";
-
-type Periodo = "dia" | "semana" | "mes";
-type Metodo = "pix_dinamico" | "pix_estatico" | "dinheiro" | "cartao";
+import type { ComissaoProfissional, MetodoPagamento, Pagamento, Periodo } from "@/lib/types";
 
 const ABAS = [
-  { id: "pagamentos", label: "Pagamentos" },
+  { id: "pagamentos", label: "Recebimentos" },
   { id: "comissoes", label: "Comissões" },
   { id: "repasses", label: "Repasses" },
 ];
-
+const DESC_ABA: Record<string, string> = {
+  pagamentos: "Tudo que entrou hoje e as cobranças de balcão por profissional.",
+  comissoes: "Quanto cada profissional ganhou — soma dos pagamentos confirmados.",
+  repasses: "Como e quando a parte de cada um é acertada.",
+};
 const ABAS_PERIODO = [
   { id: "dia", label: "Hoje" },
   { id: "semana", label: "Semana" },
   { id: "mes", label: "Mês" },
 ];
-
+const MODOS = [
+  { value: "imediato", label: "Imediato (split no pagamento)" },
+  { value: "periodico", label: "Periódico (calendário)" },
+  { value: "manual", label: "Manual (sob demanda)" },
+];
 const FREQUENCIAS = [
   { value: "semanal", label: "Semanal" },
   { value: "quinzenal", label: "Quinzenal" },
   { value: "mensal", label: "Mensal" },
 ];
-
 const DIAS_SEMANA = [
   { value: "1", label: "Segunda" },
   { value: "2", label: "Terça" },
@@ -49,32 +54,19 @@ const DIAS_SEMANA = [
   { value: "6", label: "Sábado" },
   { value: "0", label: "Domingo" },
 ];
-
 const DIAS_MES = Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
 
-const metodoLabel: Record<Metodo, string> = {
+const FATOR_PERIODO: Record<Periodo, number> = { dia: 1, semana: 6, mes: 26 };
+const metodoLabel: Record<MetodoPagamento, string> = {
   pix_dinamico: "Pix dinâmico",
   pix_estatico: "Pix fixo",
   dinheiro: "Dinheiro",
   cartao: "Cartão",
 };
-
-const origemLabel: Record<OrigemRepasse, string> = {
-  automatico: "Automático",
-  manual: "Manual",
-};
-
-const statusRepasseLabel: Record<StatusRepasse, string> = {
-  pendente: "Pendente",
-  pago: "Pago",
-  estornado: "Estornado",
-};
-
-const statusRepasseTom: Record<StatusRepasse, "concluido" | "pendente" | "cancelado"> = {
-  pendente: "pendente",
-  pago: "concluido",
-  estornado: "cancelado",
-};
+const exigeBaixaManual = (m: MetodoPagamento) => m === "dinheiro" || m === "cartao";
+const origemLabel: Record<OrigemRepasse, string> = { automatico: "Automático", manual: "Manual", split: "Split" };
+const statusRepasseLabel: Record<StatusRepasse, string> = { pendente: "Pendente", pago: "Pago", estornado: "Estornado" };
+const statusRepasseTom: Record<StatusRepasse, "green" | "amber" | "red"> = { pendente: "amber", pago: "green", estornado: "red" };
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 
@@ -86,28 +78,25 @@ function rotuloPeriodo(r: Repasse): string {
   return `${ini.getDate()}–${fim.getDate()} ${mes}`;
 }
 
-function extrato() {
-  const metodos: Metodo[] = ["pix_dinamico", "pix_estatico", "dinheiro", "cartao"];
-  return agendamentos
-    .filter((a) => a.status === "concluido")
-    .map((a, i) => ({
-      id: `pg-${a.id}`,
-      hora: a.hora,
-      profissional: a.profissional,
-      servico: a.servico,
-      valor: a.preco,
-      metodo: metodos[i % metodos.length],
-    }));
+function comissoesNoPeriodo(pags: Pagamento[], periodo: Periodo): ComissaoProfissional[] {
+  const f = FATOR_PERIODO[periodo];
+  return comissoesDerivadas(pags).map((c) => ({
+    ...c,
+    atendimentos: c.atendimentos * f,
+    faturado: c.faturado * f,
+    comissao: c.comissao * f,
+  }));
 }
 
 export default function Pagamentos() {
   const [aba, setAba] = useState("pagamentos");
   const [periodo, setPeriodo] = useState<Periodo>("dia");
-  const [pixDe, setPixDe] = useState<{ nome: string; chave: string } | null>(null);
-
+  const [pixDe, setPixDe] = useState<{ id: string; nome: string } | null>(null);
+  const [pags, setPags] = useState<Pagamento[]>(pagamentosIniciais);
   const [cfg, setCfg] = useState<ConfigRepasse>(CONFIG_REPASSE_PADRAO);
   const [repassados, setRepassados] = useState<Set<string>>(new Set());
   const [feitos, setFeitos] = useState<Repasse[]>([]);
+  const [copiado, setCopiado] = useState(false);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -123,17 +112,25 @@ export default function Pagamentos() {
       return proximo;
     });
   };
-
   const mudarFrequencia = (frequencia: FrequenciaRepasse) =>
     ajustarCfg({ frequencia, dia: frequencia === "mensal" ? 5 : 1 });
 
-  const linhas = useMemo(() => extrato(), []);
-  const totalRecebido = linhas.reduce((s, l) => s + l.valor, 0);
-  const comissoes = useMemo(() => comissoesPorPeriodo(periodo), [periodo]);
+  const darBaixa = (id: string) =>
+    setPags((atual) =>
+      atual.map((pg) => (pg.id === id ? { ...pg, status: "pago", pagoEm: new Date().toISOString() } : pg)),
+    );
+
+  const recebidosPagos = pags.filter((pg) => pg.status === "pago");
+  const totalRecebido = recebidosPagos.reduce((s, pg) => s + pg.valor, 0);
+  const aConfirmar = pags.filter((pg) => pg.status !== "pago" && exigeBaixaManual(pg.metodo)).length;
+
+  const comissoes = useMemo(() => comissoesNoPeriodo(pags, periodo), [pags, periodo]);
   const totalComissao = comissoes.reduce((s, c) => s + c.comissao, 0);
 
-  const pendencias = pendenciasRepasse().filter((p) => p.valor > 0 && !repassados.has(p.profissionalId));
-  const totalPendente = pendencias.reduce((s, p) => s + p.valor, 0);
+  const pendenciasBrutas = useMemo(() => pendenciasRepasse(cfg.modo, pags), [cfg.modo, pags]);
+  const pendencias = pendenciasBrutas.filter((p) => p.liquido > 0 && !repassados.has(p.profissionalId));
+  const aReceberDinheiro = pendenciasBrutas.filter((p) => p.liquido < 0);
+  const totalPendente = pendencias.reduce((s, p) => s + p.liquido, 0);
   const historico = [...feitos, ...repassesAnteriores];
 
   const criarRepasse = (profissionalId: string, profissional: string, valor: number): Repasse => ({
@@ -147,14 +144,12 @@ export default function Pagamentos() {
     status: "pago",
     data: hojeISO(),
   });
-
-  const repassar = (p: { profissionalId: string; profissional: string; valor: number }) => {
-    setFeitos((f) => [criarRepasse(p.profissionalId, p.profissional, p.valor), ...f]);
+  const repassar = (p: { profissionalId: string; profissional: string; liquido: number }) => {
+    setFeitos((f) => [criarRepasse(p.profissionalId, p.profissional, p.liquido), ...f]);
     setRepassados((r) => new Set(r).add(p.profissionalId));
   };
-
   const repassarTodos = () => {
-    const novos = pendencias.map((p) => criarRepasse(p.profissionalId, p.profissional, p.valor));
+    const novos = pendencias.map((p) => criarRepasse(p.profissionalId, p.profissional, p.liquido));
     setFeitos((f) => [...novos, ...f]);
     setRepassados((r) => {
       const n = new Set(r);
@@ -164,61 +159,88 @@ export default function Pagamentos() {
   };
 
   const nomeDia = DIAS_SEMANA.find((d) => Number(d.value) === cfg.dia)?.label ?? "";
-  const resumoCfg = !cfg.automatico
-    ? "Automático desligado — os repasses só acontecem quando você dispara."
-    : cfg.frequencia === "mensal"
-      ? `Todo dia ${cfg.dia} de cada mês.`
-      : cfg.frequencia === "semanal"
-        ? `Toda ${nomeDia}.`
-        : `A cada quinzena, ${nomeDia}.`;
+  const resumoCfg =
+    cfg.modo === "imediato"
+      ? "A cada Pix/cartão recebido, o split já credita a parte do profissional na chave dele — nada acumula."
+      : cfg.modo === "manual"
+        ? "Os repasses só acontecem quando você dispara, sob demanda."
+        : cfg.frequencia === "mensal"
+          ? `Automático: todo dia ${cfg.dia} de cada mês.`
+          : cfg.frequencia === "semanal"
+            ? `Automático: toda ${nomeDia}.`
+            : `Automático: a cada quinzena, ${nomeDia}.`;
 
   return (
-    <div className="stack">
-      <div className="page-head row-between">
-        <div>
-          <h1 className="page-title">Pagamentos</h1>
-          <p className="page-sub">Recebimentos e repasse da equipe</p>
-        </div>
-        <Tabs items={ABAS} value={aba} onChange={setAba} />
+    <div className="pn-page">
+      <div className="pn-pagehead">
+        <h1 className="pn-h1">Pagamentos</h1>
+        <p className="pn-sub">Recebimentos, comissões e repasse da equipe.</p>
       </div>
+
+      <Seg items={ABAS} value={aba} onChange={setAba} />
+      <p className="pn-note">{DESC_ABA[aba]}</p>
 
       {aba === "pagamentos" && (
         <>
-          <Card title="Pix fixo da equipe" action={<span className="muted">toque para ver o QR</span>}>
-            <div>
-              {profissionais.map((p) => {
-                const chave = CHAVES_PIX[p.id];
+          <div className="pn-sumstrip">
+            <div className="pn-sum">
+              <span className="pn-sum__lbl">Recebido hoje</span>
+              <div className="pn-sum__num">{brl(totalRecebido)}</div>
+            </div>
+            <div className="pn-sum">
+              <span className="pn-sum__lbl">Pagamentos</span>
+              <div className="pn-sum__num">{recebidosPagos.length}</div>
+            </div>
+            <div className="pn-sum">
+              <span className="pn-sum__lbl">A confirmar</span>
+              <div className={aConfirmar > 0 ? "pn-sum__num pn-sum__num--accent" : "pn-sum__num"}>{aConfirmar}</div>
+            </div>
+          </div>
+
+          <Card title="Recebimentos de hoje">
+            <div className="pn-list">
+              {pags.map((pg) => {
+                const pago = pg.status === "pago";
+                const pendenteManual = !pago && exigeBaixaManual(pg.metodo);
                 return (
-                  <ListItem
-                    key={p.id}
-                    leading={<Avatar name={p.nome} size="sm" />}
-                    title={p.nome}
-                    subtitle={chave ?? "Sem chave cadastrada"}
-                    trailing={<Icon name="qr" size={20} />}
-                    onClick={chave ? () => setPixDe({ nome: p.nome, chave }) : undefined}
-                    divided
+                  <Row
+                    key={pg.id}
+                    leading={<Avatar name={pg.profissional} size="sm" />}
+                    title={pg.servico ?? "Avulso (Pix na cadeira)"}
+                    subtitle={`${pg.profissional} · ${metodoLabel[pg.metodo]}`}
+                    trailing={
+                      <>
+                        <Money value={pg.valor} size="sm" tone={pago ? "ink" : "muted"} />
+                        {pago ? (
+                          <Badge tone="green">Pago</Badge>
+                        ) : pendenteManual ? (
+                          <Btn variant="primary" size="sm" iconLeft={<Glyph name="check" size={15} />} onClick={() => darBaixa(pg.id)}>
+                            Registrar
+                          </Btn>
+                        ) : (
+                          <Badge tone="amber">Aguardando</Badge>
+                        )}
+                      </>
+                    }
                   />
                 );
               })}
             </div>
           </Card>
 
-          <Card title="Recebimentos de hoje" action={<Money value={totalRecebido} size="sm" />}>
-            <div>
-              {linhas.map((l) => (
-                <ListItem
-                  key={l.id}
-                  time={l.hora}
-                  leading={<Avatar name={l.profissional} size="sm" />}
-                  title={l.servico}
-                  subtitle={`${l.profissional} · ${metodoLabel[l.metodo]}`}
-                  trailing={
-                    <>
-                      <Money value={l.valor} size="sm" />
-                      <Badge status="concluido" size="sm">Pago</Badge>
-                    </>
-                  }
-                  divided
+          <Card title="Pix fixo da equipe" action={<span className="pn-note">toque para ver o QR</span>}>
+            <p className="pn-note">
+              QR fixo de balcão de cada profissional: conta do salão com o marcador dele embutido, já pronto para o split.
+            </p>
+            <div className="pn-list">
+              {profissionais.map((p) => (
+                <Row
+                  key={p.id}
+                  leading={<Avatar name={p.nome} size="sm" />}
+                  title={p.nome}
+                  subtitle={`Conta do salão · marcador ${MARCADOR_PROF[p.id] ?? p.id}`}
+                  trailing={<Glyph name="pix" size={20} style={{ color: "var(--pn-accent-strong)" }} />}
+                  onClick={() => setPixDe({ id: p.id, nome: p.nome })}
                 />
               ))}
             </div>
@@ -229,28 +251,23 @@ export default function Pagamentos() {
       {aba === "comissoes" && (
         <Card
           title="A pagar"
-          action={
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <Tabs items={ABAS_PERIODO} value={periodo} onChange={(id) => setPeriodo(id as Periodo)} />
-              <Money value={totalComissao} size="md" />
-            </div>
-          }
-          footer={<span className="muted">A baixa lança a comissão a cada Pix recebido.</span>}
+          action={<Money value={totalComissao} size="md" />}
+          footer="Comissão = soma dos pagamentos pagos × a taxa congelada de cada um."
         >
-          <div>
+          <Seg items={ABAS_PERIODO} value={periodo} onChange={(id) => setPeriodo(id as Periodo)} />
+          <div className="pn-list">
             {comissoes.map((c) => (
-              <ListItem
+              <Row
                 key={c.profissionalId}
                 leading={<Avatar name={c.profissional} />}
                 title={c.profissional}
-                subtitle={`${c.atendimentos} atendimentos`}
+                subtitle={`${c.atendimentos} atendimentos pagos`}
                 trailing={
                   <>
-                    <span className="muted" style={{ fontVariantNumeric: "tabular-nums" }}>{pct(c.comissaoPercent)}</span>
+                    <span className="pn-note">{pct(c.comissaoPercent)}</span>
                     <Money value={c.comissao} size="sm" />
                   </>
                 }
-                divided
               />
             ))}
           </div>
@@ -259,72 +276,94 @@ export default function Pagamentos() {
 
       {aba === "repasses" && (
         <>
-          <Card title="Repasse automático" action={<Switch checked={cfg.automatico} onChange={(e) => ajustarCfg({ automatico: e.target.checked })} />}>
-            <div className="stack-sm">
-              <Select
-                label="Frequência"
-                options={FREQUENCIAS}
-                value={cfg.frequencia}
-                disabled={!cfg.automatico}
-                onChange={(e) => mudarFrequencia(e.target.value as FrequenciaRepasse)}
-              />
-              <Select
-                label={cfg.frequencia === "mensal" ? "Dia do mês" : "Dia da semana"}
-                options={cfg.frequencia === "mensal" ? DIAS_MES : DIAS_SEMANA}
-                value={String(cfg.dia)}
-                disabled={!cfg.automatico}
-                onChange={(e) => ajustarCfg({ dia: Number(e.target.value) })}
-              />
-              <p className="muted">{resumoCfg}</p>
-            </div>
+          <Card title="Modo de repasse">
+            <Select
+              label="Como a comissão é acertada"
+              options={MODOS}
+              value={cfg.modo}
+              onChange={(e) => ajustarCfg({ modo: e.target.value as ModoRepasse })}
+            />
+            {cfg.modo === "periodico" && (
+              <>
+                <Select
+                  label="Frequência"
+                  options={FREQUENCIAS}
+                  value={cfg.frequencia}
+                  onChange={(e) => mudarFrequencia(e.target.value as FrequenciaRepasse)}
+                />
+                <Select
+                  label={cfg.frequencia === "mensal" ? "Dia do mês" : "Dia da semana"}
+                  options={cfg.frequencia === "mensal" ? DIAS_MES : DIAS_SEMANA}
+                  value={String(cfg.dia)}
+                  onChange={(e) => ajustarCfg({ dia: Number(e.target.value) })}
+                />
+              </>
+            )}
+            <p className="pn-note">{resumoCfg}</p>
           </Card>
 
           <Card
             title="A repassar"
             action={
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <>
                 <Money value={totalPendente} size="md" />
-                <Button
-                  variant="accent"
-                  size="sm"
-                  disabled={pendencias.length === 0}
-                  iconLeft={<Icon name="banknote" size={16} />}
-                  onClick={repassarTodos}
-                >
+                <Btn variant="accent" size="sm" disabled={pendencias.length === 0} iconLeft={<Glyph name="pagamentos" size={16} />} onClick={repassarTodos}>
                   Repassar todos
-                </Button>
-              </div>
+                </Btn>
+              </>
             }
           >
             {pendencias.length > 0 ? (
-              <div>
+              <div className="pn-list">
                 {pendencias.map((p) => (
-                  <ListItem
+                  <Row
                     key={p.profissionalId}
                     leading={<Avatar name={p.profissional} size="sm" />}
                     title={p.profissional}
                     subtitle="Disponível para repasse"
                     trailing={
                       <>
-                        <Money value={p.valor} size="sm" />
-                        <Button variant="primary" size="sm" onClick={() => repassar(p)}>
+                        <Money value={p.liquido} size="sm" />
+                        <Btn variant="primary" size="sm" onClick={() => repassar(p)}>
                           Repassar
-                        </Button>
+                        </Btn>
                       </>
                     }
-                    divided
                   />
                 ))}
               </div>
             ) : (
-              <p className="muted">Tudo repassado por aqui.</p>
+              <p className="pn-note">
+                {cfg.modo === "imediato" ? "No modo imediato o split já creditou tudo." : "Tudo repassado por aqui."}
+              </p>
             )}
           </Card>
 
+          {aReceberDinheiro.length > 0 && (
+            <Card title="A receber da equipe (dinheiro vivo)" action={<span className="pn-note">compensa no próximo repasse</span>}>
+              <div className="pn-list">
+                {aReceberDinheiro.map((p) => (
+                  <Row
+                    key={p.profissionalId}
+                    leading={<Avatar name={p.profissional} size="sm" />}
+                    title={p.profissional}
+                    subtitle="Recebeu em dinheiro — parte do salão a acertar"
+                    trailing={
+                      <>
+                        <Money value={p.liquido} size="sm" tone="debit" />
+                        <Badge tone="amber">A receber</Badge>
+                      </>
+                    }
+                  />
+                ))}
+              </div>
+            </Card>
+          )}
+
           <Card title="Histórico de repasses">
-            <div>
+            <div className="pn-list">
               {historico.map((r) => (
-                <ListItem
+                <Row
                   key={r.id}
                   leading={<Avatar name={r.profissional} size="sm" />}
                   title={r.profissional}
@@ -332,10 +371,9 @@ export default function Pagamentos() {
                   trailing={
                     <>
                       <Money value={r.valor} size="sm" />
-                      <Badge status={statusRepasseTom[r.status]} size="sm">{statusRepasseLabel[r.status]}</Badge>
+                      <Badge tone={statusRepasseTom[r.status]}>{statusRepasseLabel[r.status]}</Badge>
                     </>
                   }
-                  divided
                 />
               ))}
             </div>
@@ -344,37 +382,40 @@ export default function Pagamentos() {
       )}
 
       <Modal open={!!pixDe} onClose={() => setPixDe(null)} title={pixDe ? `Pix fixo · ${pixDe.nome}` : ""}>
-        {pixDe && <PixFixo nome={pixDe.nome} chave={pixDe.chave} />}
+        {pixDe && (
+          <div className="pn-pix">
+            <div className="pn-pix__resumo">
+              <span className="pn-pix__name">{pixDe.nome}</span>
+              <span className="pn-pix__meta">{NOME_RECEBEDOR} · {CHAVE_CENTRAL}</span>
+              <span className="pn-pix__meta">marcador {MARCADOR_PROF[pixDe.id] ?? pixDe.id}</span>
+            </div>
+            <PixQr seed={pixEstaticoBalcao(MARCADOR_PROF[pixDe.id] ?? pixDe.id)} />
+            <button
+              type="button"
+              className="pn-copia"
+              onClick={async () => {
+                await navigator.clipboard.writeText(pixEstaticoBalcao(MARCADOR_PROF[pixDe.id] ?? pixDe.id));
+                setCopiado(true);
+              }}
+            >
+              <span className="pn-copia__code">{pixEstaticoBalcao(MARCADOR_PROF[pixDe.id] ?? pixDe.id)}</span>
+              <span className="pn-copia__act">
+                <Glyph name={copiado ? "check" : "copy"} size={16} />
+                {copiado ? "Copiado" : "Copiar"}
+              </span>
+            </button>
+          </div>
+        )}
       </Modal>
     </div>
   );
 }
 
-function PixFixo({ nome, chave }: { nome: string; chave: string }) {
-  const [copiado, setCopiado] = useState(false);
-  const codigo = pixEstatico(chave);
-  const grade = useMemo(() => gradeQr(codigo), [codigo]);
-
-  const copiar = async () => {
-    await navigator.clipboard.writeText(codigo);
-    setCopiado(true);
-  };
-
+function PixQr({ seed }: { seed: string }) {
+  const grade = useMemo(() => gradeQr(seed), [seed]);
   return (
-    <div className="cobranca">
-      <div className="cobranca__resumo">
-        <span>{nome}</span>
-        <span className="muted">{chave}</span>
-      </div>
-      <svg className="cobranca__qr" viewBox={`0 0 ${grade.length} ${grade.length}`} role="img" aria-label="QR do Pix fixo">
-        {grade.map((linha, y) => linha.map((on, x) => (on ? <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} /> : null)))}
-      </svg>
-      <button className="cobranca__cc" onClick={copiar}>
-        <span className="cobranca__cc-code">{codigo}</span>
-        <span className="cobranca__cc-act">
-          <Icon name={copiado ? "check" : "copy"} size={16} /> {copiado ? "Copiado" : "Copiar"}
-        </span>
-      </button>
-    </div>
+    <svg className="pn-qr" viewBox={`0 0 ${grade.length} ${grade.length}`} role="img" aria-label="QR do Pix fixo">
+      {grade.map((linha, y) => linha.map((on, x) => (on ? <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} /> : null)))}
+    </svg>
   );
 }

@@ -1,18 +1,25 @@
 export type StatusAgendamento = "confirmado" | "concluido" | "cancelado" | "pendente";
 export type Periodo = "dia" | "semana" | "mes";
 
+export type MetodoPagamento = "pix_dinamico" | "pix_estatico" | "dinheiro" | "cartao";
+export type StatusPagamento = "pendente" | "pago" | "expirado" | "estornado";
+
+export type TipoChavePix = "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
+
 export interface Profissional {
   id: string;
   nome: string;
   apelido: string;
-  comissaoPercent: number; // 0..1
+  comissaoPercent: number;
+  chavePix?: string;
+  pixTipoChave?: TipoChavePix;
 }
 
 export interface Servico {
   id: string;
   nome: string;
   duracaoMin: number;
-  preco: number; // em reais
+  preco: number;
 }
 
 export interface Agendamento {
@@ -24,6 +31,19 @@ export interface Agendamento {
   profissional: string;
   preco: number;
   status: StatusAgendamento;
+}
+
+export interface Pagamento {
+  id: string;
+  profissionalId: string;
+  profissional: string;
+  agendamentoId: string | null;
+  servico: string | null;
+  valor: number;
+  comissaoPercent: number;
+  metodo: MetodoPagamento;
+  status: StatusPagamento;
+  pagoEm: string | null;
 }
 
 export interface ComissaoProfissional {
@@ -57,7 +77,7 @@ export interface FaixaHora {
 }
 
 export interface DiaOcupacao {
-  dia: number; // dia do mês (1..31)
+  dia: number;
   cortes: number;
   capacidade: number;
 }

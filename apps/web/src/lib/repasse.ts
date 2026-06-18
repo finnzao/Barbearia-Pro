@@ -1,11 +1,13 @@
-import { profissionais } from "@/lib/mock-data";
+import { pagamentos, profissionais } from "@/lib/mock-data";
 
 export type FrequenciaRepasse = "semanal" | "quinzenal" | "mensal";
-export type OrigemRepasse = "automatico" | "manual";
+
+export type ModoRepasse = "imediato" | "periodico" | "manual";
+export type OrigemRepasse = "automatico" | "manual" | "split";
 export type StatusRepasse = "pendente" | "pago" | "estornado";
 
 export interface ConfigRepasse {
-  automatico: boolean;
+  modo: ModoRepasse;
   frequencia: FrequenciaRepasse;
   dia: number;
 }
@@ -13,7 +15,9 @@ export interface ConfigRepasse {
 export interface PendenciaRepasse {
   profissionalId: string;
   profissional: string;
-  valor: number;
+  aPagar: number;
+  aReceber: number;
+  liquido: number;
 }
 
 export interface Repasse {
@@ -29,7 +33,7 @@ export interface Repasse {
 }
 
 export const CONFIG_REPASSE_PADRAO: ConfigRepasse = {
-  automatico: true,
+  modo: "periodico",
   frequencia: "mensal",
   dia: 5,
 };
@@ -41,7 +45,15 @@ export function lerRepasse(): ConfigRepasse {
   try {
     const cru = window.localStorage.getItem(CHAVE);
     if (!cru) return CONFIG_REPASSE_PADRAO;
-    return { ...CONFIG_REPASSE_PADRAO, ...JSON.parse(cru) };
+    const obj = JSON.parse(cru);
+    if (obj.modo === undefined && typeof obj.automatico === "boolean") {
+      return {
+        modo: obj.automatico ? "periodico" : "manual",
+        frequencia: obj.frequencia ?? "mensal",
+        dia: obj.dia ?? 5,
+      };
+    }
+    return { ...CONFIG_REPASSE_PADRAO, ...obj };
   } catch {
     return CONFIG_REPASSE_PADRAO;
   }
@@ -52,18 +64,33 @@ export function salvarRepasse(cfg: ConfigRepasse): void {
   window.localStorage.setItem(CHAVE, JSON.stringify(cfg));
 }
 
-const PENDENCIA_MOCK: Record<string, number> = {
-  p1: 840,
-  p2: 612,
-  p3: 455,
-};
+const parteSalao = (valor: number, percent: number) => valor - Math.round(valor * percent);
+const parteProfissional = (valor: number, percent: number) => Math.round(valor * percent);
 
-export function pendenciasRepasse(): PendenciaRepasse[] {
-  return profissionais.map((p) => ({
-    profissionalId: p.id,
-    profissional: p.nome,
-    valor: PENDENCIA_MOCK[p.id] ?? 0,
-  }));
+export function pendenciasRepasse(
+  modo: ModoRepasse = "periodico",
+  lista = pagamentos,
+): PendenciaRepasse[] {
+  return profissionais.map((p) => {
+    const pagos = lista.filter((pg) => pg.profissionalId === p.id && pg.status === "pago");
+    const eletronico = pagos.filter((pg) => pg.metodo !== "dinheiro");
+    const dinheiro = pagos.filter((pg) => pg.metodo === "dinheiro");
+
+    const aPagar =
+      modo === "imediato"
+        ? 0
+        : eletronico.reduce((s, pg) => s + parteProfissional(pg.valor, pg.comissaoPercent), 0);
+
+    const aReceber = dinheiro.reduce((s, pg) => s + parteSalao(pg.valor, pg.comissaoPercent), 0);
+
+    return {
+      profissionalId: p.id,
+      profissional: p.nome,
+      aPagar,
+      aReceber,
+      liquido: aPagar - aReceber,
+    };
+  });
 }
 
 export const repassesAnteriores: Repasse[] = [
