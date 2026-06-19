@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Glyph } from "@/app/painel/glyphs";
 import { Avatar, Badge, Btn, Card, Money, Modal, Row, Seg, Select, brl, pct } from "@/app/painel/ui";
 import { comissoesDerivadas, pagamentos as pagamentosIniciais, profissionais } from "@/lib/mock-data";
+import { METODO_PAGAMENTO_LABEL, exigeBaixaManual } from "@/lib/pagamento";
 import { CHAVE_CENTRAL, gradeQr, MARCADOR_PROF, NOME_RECEBEDOR, pixEstaticoBalcao } from "@/lib/pix";
 import {
   CONFIG_REPASSE_PADRAO,
@@ -18,7 +19,7 @@ import {
   type Repasse,
   type StatusRepasse,
 } from "@/lib/repasse";
-import type { ComissaoProfissional, MetodoPagamento, Pagamento, Periodo } from "@/lib/types";
+import type { ComissaoProfissional, Pagamento, Periodo } from "@/lib/types";
 
 const ABAS = [
   { id: "pagamentos", label: "Recebimentos" },
@@ -27,7 +28,7 @@ const ABAS = [
 ];
 const DESC_ABA: Record<string, string> = {
   pagamentos: "Tudo que entrou hoje e as cobranças de balcão por profissional.",
-  comissoes: "Quanto cada profissional ganhou — soma dos pagamentos confirmados.",
+  comissoes: "Quanto cada profissional ganhou e quanto fica com a barbearia.",
   repasses: "Como e quando a parte de cada um é acertada.",
 };
 const ABAS_PERIODO = [
@@ -57,13 +58,6 @@ const DIAS_SEMANA = [
 const DIAS_MES = Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
 
 const FATOR_PERIODO: Record<Periodo, number> = { dia: 1, semana: 6, mes: 26 };
-const metodoLabel: Record<MetodoPagamento, string> = {
-  pix_dinamico: "Pix dinâmico",
-  pix_estatico: "Pix fixo",
-  dinheiro: "Dinheiro",
-  cartao: "Cartão",
-};
-const exigeBaixaManual = (m: MetodoPagamento) => m === "dinheiro" || m === "cartao";
 const origemLabel: Record<OrigemRepasse, string> = { automatico: "Automático", manual: "Manual", split: "Split" };
 const statusRepasseLabel: Record<StatusRepasse, string> = { pendente: "Pendente", pago: "Pago", estornado: "Estornado" };
 const statusRepasseTom: Record<StatusRepasse, "green" | "amber" | "red"> = { pendente: "amber", pago: "green", estornado: "red" };
@@ -80,12 +74,17 @@ function rotuloPeriodo(r: Repasse): string {
 
 function comissoesNoPeriodo(pags: Pagamento[], periodo: Periodo): ComissaoProfissional[] {
   const f = FATOR_PERIODO[periodo];
-  return comissoesDerivadas(pags).map((c) => ({
-    ...c,
-    atendimentos: c.atendimentos * f,
-    faturado: c.faturado * f,
-    comissao: c.comissao * f,
-  }));
+  return comissoesDerivadas(pags).map((c) => {
+    const faturado = c.faturado * f;
+    const comissao = c.comissao * f;
+    return {
+      ...c,
+      atendimentos: c.atendimentos * f,
+      faturado,
+      comissao,
+      liquidoBarbearia: faturado - comissao,
+    };
+  });
 }
 
 export default function Pagamentos() {
@@ -125,7 +124,9 @@ export default function Pagamentos() {
   const aConfirmar = pags.filter((pg) => pg.status !== "pago" && exigeBaixaManual(pg.metodo)).length;
 
   const comissoes = useMemo(() => comissoesNoPeriodo(pags, periodo), [pags, periodo]);
+  const totalFaturado = comissoes.reduce((s, c) => s + c.faturado, 0);
   const totalComissao = comissoes.reduce((s, c) => s + c.comissao, 0);
+  const totalLiquido = comissoes.reduce((s, c) => s + c.liquidoBarbearia, 0);
 
   const pendenciasBrutas = useMemo(() => pendenciasRepasse(cfg.modo, pags), [cfg.modo, pags]);
   const pendencias = pendenciasBrutas.filter((p) => p.liquido > 0 && !repassados.has(p.profissionalId));
@@ -207,7 +208,7 @@ export default function Pagamentos() {
                     key={pg.id}
                     leading={<Avatar name={pg.profissional} size="sm" />}
                     title={pg.servico ?? "Avulso (Pix na cadeira)"}
-                    subtitle={`${pg.profissional} · ${metodoLabel[pg.metodo]}`}
+                    subtitle={`${pg.profissional} · ${METODO_PAGAMENTO_LABEL[pg.metodo]}`}
                     trailing={
                       <>
                         <Money value={pg.valor} size="sm" tone={pago ? "ink" : "muted"} />
@@ -250,22 +251,39 @@ export default function Pagamentos() {
 
       {aba === "comissoes" && (
         <Card
-          title="A pagar"
+          title="Comissões e líquido"
           action={<Money value={totalComissao} size="md" />}
-          footer="Comissão = soma dos pagamentos pagos × a taxa congelada de cada um."
+          footer="Comissão = pagamentos pagos × a taxa congelada de cada um. Líquido da barbearia = faturado − comissões."
         >
           <Seg items={ABAS_PERIODO} value={periodo} onChange={(id) => setPeriodo(id as Periodo)} />
+          <div className="pn-sumstrip">
+            <div className="pn-sum">
+              <span className="pn-sum__lbl">Faturado</span>
+              <div className="pn-sum__num">{brl(totalFaturado)}</div>
+            </div>
+            <div className="pn-sum">
+              <span className="pn-sum__lbl">Comissões</span>
+              <div className="pn-sum__num">{brl(totalComissao)}</div>
+            </div>
+            <div className="pn-sum">
+              <span className="pn-sum__lbl">Líquido da barbearia</span>
+              <div className="pn-sum__num pn-sum__num--accent">{brl(totalLiquido)}</div>
+            </div>
+          </div>
           <div className="pn-list">
             {comissoes.map((c) => (
               <Row
                 key={c.profissionalId}
                 leading={<Avatar name={c.profissional} />}
                 title={c.profissional}
-                subtitle={`${c.atendimentos} atendimentos pagos`}
+                subtitle={`${c.atendimentos} atendimentos pagos · faturou ${brl(c.faturado)}`}
                 trailing={
                   <>
                     <span className="pn-note">{pct(c.comissaoPercent)}</span>
-                    <Money value={c.comissao} size="sm" />
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                      <Money value={c.comissao} size="sm" />
+                      <span className="pn-note">líquido salão {brl(c.liquidoBarbearia)}</span>
+                    </div>
                   </>
                 }
               />

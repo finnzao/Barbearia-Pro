@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Glyph } from "@/app/painel/glyphs";
 import { NAV } from "@/app/painel/secoes";
 import "@/app/painel/painel.css";
+import "@/app/painel/painel-extras.css";
 
 function ehAtiva(pathname: string, href: string) {
   return href === "/painel" ? pathname === "/painel" : pathname.startsWith(href);

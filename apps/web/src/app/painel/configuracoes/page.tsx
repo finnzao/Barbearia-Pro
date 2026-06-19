@@ -56,26 +56,27 @@ export default function Configuracoes() {
   return (
     <div className="stack">
       <div className="page-head">
-        <div>
-          <h1 className="page-title">Configurações</h1>
-          <p className="page-sub">Como o cliente agenda pelo link</p>
-        </div>
+        <h1 className="page-title">Configurações</h1>
+        <p className="page-sub">Como a barbearia recebe agendamentos pelo link público.</p>
       </div>
 
       <Card
         title="Agendamento online"
+        action={
+          <Button variant="accent" size="sm" iconLeft={<Icon name="check" size={16} />} onClick={salvar}>
+            {salvo ? "Salvo" : "Salvar alterações"}
+          </Button>
+        }
         footer={
-          <div className="row-between">
-            <Link href={previewHref} target="_blank" className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Icon name="arrowRight" size={15} /> Pré-visualizar o fluxo do cliente
-            </Link>
-            <Button variant="accent" size="sm" iconLeft={<Icon name="check" size={16} />} onClick={salvar}>
-              {salvo ? "Salvo" : "Salvar"}
-            </Button>
-          </div>
+          <span className="muted">
+            As escolhas valem para todos os clientes que abrirem o link de agendamento.
+          </span>
         }
       >
         <div className="stack-sm">
+          <p className="muted">
+            Controle quanto o cliente decide sozinho. O que ficar desligado é definido pela barbearia no balcão.
+          </p>
           <Opcao
             titulo="Cliente escolhe o profissional"
             descricao="Ligado, o cliente seleciona quem vai cortar. Desligado, agenda no primeiro disponível e a barbearia distribui."
@@ -91,8 +92,30 @@ export default function Configuracoes() {
         </div>
       </Card>
 
+      <Card title="Link do cliente">
+        <div className="stack-sm">
+          <p className="muted">
+            Veja exatamente o que o cliente encontra ao abrir o link, já no modo configurado acima.
+          </p>
+          <div className="row-between">
+            <span className="muted">Abre o fluxo de agendamento em uma nova aba.</span>
+            <Link
+              href={previewHref}
+              target="_blank"
+              className="nr-btn nr-btn--secondary nr-btn--sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <Icon name="arrowRight" size={15} /> Pré-visualizar fluxo
+            </Link>
+          </div>
+        </div>
+      </Card>
+
       <Card title="Horário de funcionamento">
-        <HorarioFuncionamento />
+        <div className="stack-sm">
+          <p className="muted">Defina os dias e faixas de atendimento. Dia desligado fica fechado para agendamento.</p>
+          <HorarioFuncionamento />
+        </div>
       </Card>
     </div>
   );

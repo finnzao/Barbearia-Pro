@@ -1,7 +1,12 @@
 export type StatusAgendamento = "confirmado" | "concluido" | "cancelado" | "pendente";
 export type Periodo = "dia" | "semana" | "mes";
 
-export type MetodoPagamento = "pix_dinamico" | "pix_estatico" | "dinheiro" | "cartao";
+export type MetodoPagamento =
+  | "pix_dinamico"
+  | "pix_estatico"
+  | "dinheiro"
+  | "cartao_debito"
+  | "cartao_credito";
 export type StatusPagamento = "pendente" | "pago" | "expirado" | "estornado";
 
 export type TipoChavePix = "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
@@ -31,6 +36,7 @@ export interface Agendamento {
   profissional: string;
   preco: number;
   status: StatusAgendamento;
+  formaPagamento?: MetodoPagamento;
 }
 
 export interface Pagamento {
@@ -53,6 +59,8 @@ export interface ComissaoProfissional {
   faturado: number;
   comissaoPercent: number;
   comissao: number;
+  // Parte que fica com a barbearia: faturado - comissão do profissional.
+  liquidoBarbearia: number;
 }
 
 export interface ResumoHoje {
@@ -80,4 +88,46 @@ export interface DiaOcupacao {
   dia: number;
   cortes: number;
   capacidade: number;
+}
+
+// ---- Relatórios ----
+export interface ReceitaProfissional {
+  profissionalId: string;
+  profissional: string;
+  atendimentos: number;
+  receita: number;
+  comissao: number;
+  // Receita menos a comissão do profissional.
+  liquido: number;
+}
+
+export interface ServicoRealizado {
+  servico: string;
+  quantidade: number;
+  receita: number;
+}
+
+export interface FormaPagamentoResumo {
+  metodo: MetodoPagamento;
+  quantidade: number;
+  total: number;
+}
+
+export interface ClienteRecorrente {
+  cliente: string;
+  visitas: number;
+  total: number;
+}
+
+export interface FaturamentoMes {
+  mes: string;
+  faturamento: number;
+}
+
+export interface RelatorioFinanceiro {
+  faturamento: number;
+  comissoes: number;
+  liquido: number;
+  atendimentos: number;
+  ticketMedio: number;
 }

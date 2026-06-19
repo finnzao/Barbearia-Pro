@@ -1,0 +1,415 @@
+/* Utilitários de layout e estilos de página do painel.
+   Várias páginas (agenda, análise, calendário, serviços, configurações,
+   relatórios) usam estas classes; aqui elas ganham forma, sempre sobre os
+   tokens já existentes do design system. Tudo escopado em .pn-shell para
+   herdar as variáveis --pn-* e não vazar para o fluxo do cliente. */
+
+.pn-shell .stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.pn-shell .stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.pn-shell .page-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pn-shell .page-title {
+  margin: 0;
+  font-family: var(--pn-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--pn-ink);
+}
+.pn-shell .page-sub {
+  margin: 0;
+  font-size: 15px;
+  color: var(--pn-muted);
+}
+.pn-shell .row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.pn-shell .muted {
+  color: var(--pn-muted);
+  font-size: 13px;
+}
+
+.pn-shell .grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--sp-3);
+}
+.pn-shell .grid-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sp-2);
+}
+
+.pn-shell .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+.pn-shell .legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--pn-muted);
+}
+.pn-shell .legend__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex: none;
+}
+
+/* ===== Gráfico de barras (components/bar-chart.tsx) ===== */
+.pn-shell .barchart {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 190px;
+  padding-top: 8px;
+}
+.pn-shell .barcol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+.pn-shell .barcol__val {
+  font-family: var(--pn-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pn-muted);
+}
+.pn-shell .barcol__bar {
+  width: 100%;
+  max-width: 46px;
+  border-radius: 8px 8px 0 0;
+  background: var(--pn-dark-2);
+}
+.pn-shell .barcol__bar--max {
+  background: var(--pn-accent-bright);
+}
+.pn-shell .barcol__bar--min {
+  background: var(--pn-line-2);
+}
+.pn-shell .barcol__label {
+  font-size: 12px;
+  color: var(--pn-muted);
+  white-space: nowrap;
+}
+
+/* ===== Calendário (components/calendario.tsx) ===== */
+.pn-shell .cal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.pn-shell .cal__dow {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pn-muted);
+  padding-bottom: 4px;
+}
+.pn-shell .cal__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 64px;
+  padding: 7px 4px;
+  border: 1px solid var(--pn-line);
+  border-radius: 10px;
+  background: var(--pn-card);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.pn-shell .cal__cell:hover:not(.cal__cell--closed):not(.cal__cell--empty) {
+  border-color: var(--pn-accent);
+}
+.pn-shell .cal__cell--empty {
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+.pn-shell .cal__cell--closed {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.pn-shell .cal__cell--today {
+  border-color: var(--pn-accent);
+}
+.pn-shell .cal__cell--on {
+  background: var(--pn-accent-soft);
+  border-color: var(--pn-accent);
+}
+.pn-shell .cal__dd {
+  font-family: var(--pn-mono);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--pn-ink);
+}
+.pn-shell .cal__count {
+  font-size: 10px;
+  color: var(--pn-muted);
+  margin-top: auto;
+}
+.pn-shell .cal__bar {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--pn-line);
+  overflow: hidden;
+}
+.pn-shell .cal__bar span {
+  display: block;
+  height: 100%;
+  background: var(--pn-accent-bright);
+}
+
+.pn-shell .dayslots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(66px, 1fr));
+  gap: 8px;
+}
+.pn-shell .dayslot {
+  padding: 9px 0;
+  text-align: center;
+  border-radius: 9px;
+  border: 1px solid var(--pn-line);
+  background: var(--pn-card);
+  font-family: var(--pn-mono);
+  font-size: 13px;
+  color: var(--pn-muted);
+}
+.pn-shell .dayslot--taken {
+  background: var(--pn-accent-soft);
+  border-color: var(--pn-accent);
+  color: var(--pn-accent-strong);
+  font-weight: 600;
+}
+
+/* ===== Configurações ===== */
+.pn-shell .opt-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--pn-line);
+}
+.pn-shell .opt-row:first-child {
+  padding-top: 0;
+}
+.pn-shell .opt-row:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.pn-shell .opt-row__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pn-ink);
+}
+.pn-shell .opt-row__desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pn-muted);
+  max-width: 54ch;
+}
+
+.pn-shell .horario-row {
+  display: grid;
+  grid-template-columns: 92px auto 1fr;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--pn-line);
+}
+.pn-shell .horario-row:last-child {
+  border-bottom: none;
+}
+.pn-shell .horario-row__dia {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--pn-ink);
+}
+.pn-shell .horario-row__faixa {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+}
+.pn-shell .horario-row__time {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--pn-line-2);
+  border-radius: 10px;
+  background: var(--pn-card);
+  color: var(--pn-ink);
+  font-family: var(--pn-mono);
+  font-size: 13px;
+}
+.pn-shell .horario-row__time:focus {
+  outline: none;
+  border-color: var(--pn-accent);
+  box-shadow: 0 0 0 3px var(--pn-accent-soft);
+}
+.pn-shell .horario-row__sep {
+  font-size: 13px;
+  color: var(--pn-muted);
+}
+.pn-shell .horario-row__fechado {
+  justify-self: end;
+  font-size: 13px;
+  color: var(--pn-muted);
+}
+
+/* ===== Relatórios — barras de participação ===== */
+.pn-shell .rep-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 132px;
+}
+.pn-shell .rep-meter__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pn-shell .rep-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--pn-line);
+  overflow: hidden;
+}
+.pn-shell .rep-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--pn-accent-bright);
+}
+.pn-shell .rep-bar--soft span {
+  background: var(--pn-accent);
+}
+.pn-shell .rep-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--sp-2);
+}
+.pn-shell .rep-highlight {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--pn-line);
+  border-radius: 14px;
+  background: var(--pn-bg);
+}
+.pn-shell .rep-highlight__lbl {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pn-muted);
+}
+.pn-shell .rep-highlight__val {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--pn-ink);
+}
+.pn-shell .rep-highlight__note {
+  font-size: 12px;
+  color: var(--pn-muted);
+}
+
+/* ===== Agenda — navegação de mês e horários com nome ===== */
+.pn-shell .cal-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pn-shell .cal-nav__btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pn-line-2);
+  border-radius: 10px;
+  background: var(--pn-card);
+  color: var(--pn-ink);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.pn-shell .cal-nav__btn:hover {
+  border-color: var(--pn-accent);
+  background: var(--pn-accent-soft);
+}
+.pn-shell .cal-nav__btn:focus-visible {
+  outline: none;
+  border-color: var(--pn-accent);
+  box-shadow: 0 0 0 3px var(--pn-accent-soft);
+}
+.pn-shell .cal-nav__btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Slot de horário que mostra hora + nome do cliente (ou "livre"). */
+.pn-shell .dayslot--rich {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  font: inherit;
+  font-family: var(--pn-mono);
+  font-size: 13px;
+  line-height: 1.2;
+}
+.pn-shell .dayslot__nome {
+  font-family: var(--pn-display, inherit);
+  font-size: 11px;
+  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pn-shell .dayslot--free {
+  color: var(--pn-muted);
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+.pn-shell .dayslot--free:hover {
+  border-color: var(--pn-accent);
+  color: var(--pn-ink);
+  background: var(--pn-accent-soft);
+}
+.pn-shell .dayslot--free:focus-visible {
+  outline: none;
+  border-color: var(--pn-accent);
+  box-shadow: 0 0 0 3px var(--pn-accent-soft);
+}
