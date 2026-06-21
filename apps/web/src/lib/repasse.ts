@@ -93,6 +93,7 @@ export function pendenciasRepasse(
   });
 }
 
+// Valores em centavos (igual ao banco): 312000 = R$ 3.120,00.
 export const repassesAnteriores: Repasse[] = [
   {
     id: "rp-202605-p1",
@@ -100,7 +101,7 @@ export const repassesAnteriores: Repasse[] = [
     profissional: "Téo Andrade",
     periodoInicio: "2026-05-01",
     periodoFim: "2026-05-31",
-    valor: 3120,
+    valor: 312000,
     origem: "automatico",
     status: "pago",
     data: "2026-06-05",
@@ -111,7 +112,7 @@ export const repassesAnteriores: Repasse[] = [
     profissional: "Rafael Lima",
     periodoInicio: "2026-05-01",
     periodoFim: "2026-05-31",
-    valor: 2480,
+    valor: 248000,
     origem: "automatico",
     status: "pago",
     data: "2026-06-05",
@@ -122,7 +123,7 @@ export const repassesAnteriores: Repasse[] = [
     profissional: "Bruno Souza",
     periodoInicio: "2026-06-01",
     periodoFim: "2026-06-10",
-    valor: 690,
+    valor: 69000,
     origem: "manual",
     status: "pago",
     data: "2026-06-10",

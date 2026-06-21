@@ -19,6 +19,8 @@ import type {
   StatusAgendamento,
 } from "./types";
 
+
+
 export const profissionais: Profissional[] = [
   { id: "p1", nome: "Téo Andrade", apelido: "Téo", comissaoPercent: 0.5, chavePix: "teo.andrade@pix.com", pixTipoChave: "email" },
   { id: "p2", nome: "Rafael Lima", apelido: "Rafa", comissaoPercent: 0.45, chavePix: "rafael.lima@pix.com", pixTipoChave: "email" },
@@ -26,33 +28,33 @@ export const profissionais: Profissional[] = [
 ];
 
 export const servicos: Servico[] = [
-  { id: "s1", nome: "Corte + barba", duracaoMin: 45, preco: 80 },
-  { id: "s2", nome: "Corte máquina", duracaoMin: 30, preco: 45 },
-  { id: "s3", nome: "Corte tesoura", duracaoMin: 40, preco: 70 },
-  { id: "s4", nome: "Barba terapia", duracaoMin: 30, preco: 50 },
-  { id: "s5", nome: "Platinado", duracaoMin: 120, preco: 220 },
+  { id: "s1", nome: "Corte + barba", duracaoMin: 45, preco: 8000 },
+  { id: "s2", nome: "Corte máquina", duracaoMin: 30, preco: 4500 },
+  { id: "s3", nome: "Corte tesoura", duracaoMin: 40, preco: 7000 },
+  { id: "s4", nome: "Barba terapia", duracaoMin: 30, preco: 5000 },
+  { id: "s5", nome: "Platinado", duracaoMin: 120, preco: 22000 },
 ];
 
 export const agendamentos: Agendamento[] = [
-  { id: "a1", hora: "09:00", cliente: "João Pedro", servico: "Corte + barba", profissionalId: "p1", profissional: "Téo", preco: 80, status: "concluido", formaPagamento: "pix_dinamico" },
-  { id: "a2", hora: "09:45", cliente: "Marcos V.", servico: "Corte máquina", profissionalId: "p2", profissional: "Rafa", preco: 45, status: "concluido", formaPagamento: "cartao_debito" },
-  { id: "a3", hora: "10:30", cliente: "Bruno Dias", servico: "Barba terapia", profissionalId: "p3", profissional: "Bruno", preco: 50, status: "concluido", formaPagamento: "dinheiro" },
-  { id: "a4", hora: "11:15", cliente: "Felipe R.", servico: "Corte tesoura", profissionalId: "p1", profissional: "Téo", preco: 70, status: "concluido", formaPagamento: "pix_estatico" },
-  { id: "a5", hora: "14:00", cliente: "Anderson L.", servico: "Platinado", profissionalId: "p2", profissional: "Rafa", preco: 220, status: "confirmado" },
-  { id: "a6", hora: "15:30", cliente: "Thiago M.", servico: "Corte + barba", profissionalId: "p3", profissional: "Bruno", preco: 80, status: "confirmado" },
-  { id: "a7", hora: "16:15", cliente: "Gabriel S.", servico: "Corte máquina", profissionalId: "p1", profissional: "Téo", preco: 45, status: "pendente" },
-  { id: "a8", hora: "17:00", cliente: "Lucas F.", servico: "Barba terapia", profissionalId: "p2", profissional: "Rafa", preco: 50, status: "cancelado" },
+  { id: "a1", hora: "09:00", cliente: "João Pedro", servico: "Corte + barba", profissionalId: "p1", profissional: "Téo", preco: 8000, status: "concluido", formaPagamento: "pix_dinamico" },
+  { id: "a2", hora: "09:45", cliente: "Marcos V.", servico: "Corte máquina", profissionalId: "p2", profissional: "Rafa", preco: 4500, status: "concluido", formaPagamento: "cartao_debito" },
+  { id: "a3", hora: "10:30", cliente: "Bruno Dias", servico: "Barba terapia", profissionalId: "p3", profissional: "Bruno", preco: 5000, status: "concluido", formaPagamento: "dinheiro" },
+  { id: "a4", hora: "11:15", cliente: "Felipe R.", servico: "Corte tesoura", profissionalId: "p1", profissional: "Téo", preco: 7000, status: "concluido", formaPagamento: "pix_estatico" },
+  { id: "a5", hora: "14:00", cliente: "Anderson L.", servico: "Platinado", profissionalId: "p2", profissional: "Rafa", preco: 22000, status: "confirmado" },
+  { id: "a6", hora: "15:30", cliente: "Thiago M.", servico: "Corte + barba", profissionalId: "p3", profissional: "Bruno", preco: 8000, status: "confirmado" },
+  { id: "a7", hora: "16:15", cliente: "Gabriel S.", servico: "Corte máquina", profissionalId: "p1", profissional: "Téo", preco: 4500, status: "pendente" },
+  { id: "a8", hora: "17:00", cliente: "Lucas F.", servico: "Barba terapia", profissionalId: "p2", profissional: "Rafa", preco: 5000, status: "cancelado" },
 ];
 
 export const pagamentos: Pagamento[] = [
-  { id: "pg1", profissionalId: "p1", profissional: "Téo", agendamentoId: "a1", servico: "Corte + barba", valor: 80, comissaoPercent: 0.5, metodo: "pix_dinamico", status: "pago", pagoEm: "2026-06-13T09:05:00Z" },
-  { id: "pg2", profissionalId: "p2", profissional: "Rafa", agendamentoId: "a2", servico: "Corte máquina", valor: 45, comissaoPercent: 0.45, metodo: "cartao_debito", status: "pago", pagoEm: "2026-06-13T09:50:00Z" },
-  { id: "pg3", profissionalId: "p1", profissional: "Téo", agendamentoId: "a4", servico: "Corte tesoura", valor: 70, comissaoPercent: 0.5, metodo: "pix_estatico", status: "pago", pagoEm: "2026-06-13T11:20:00Z" },
-  { id: "pg-cred1", profissionalId: "p1", profissional: "Téo", agendamentoId: null, servico: "Corte + barba", valor: 80, comissaoPercent: 0.5, metodo: "cartao_credito", status: "pago", pagoEm: "2026-06-13T11:55:00Z" },
-  { id: "pg-av1", profissionalId: "p2", profissional: "Rafa", agendamentoId: null, servico: "Pézinho", valor: 20, comissaoPercent: 0.45, metodo: "pix_estatico", status: "pago", pagoEm: "2026-06-13T12:10:00Z" },
-  { id: "pg-din1", profissionalId: "p3", profissional: "Bruno", agendamentoId: null, servico: "Acabamento", valor: 40, comissaoPercent: 0.4, metodo: "dinheiro", status: "pago", pagoEm: "2026-06-13T13:30:00Z" },
-  { id: "pg-cred2", profissionalId: "p3", profissional: "Bruno", agendamentoId: null, servico: "Corte máquina", valor: 45, comissaoPercent: 0.4, metodo: "cartao_credito", status: "pendente", pagoEm: null },
-  { id: "pg-din2", profissionalId: "p3", profissional: "Bruno", agendamentoId: "a3", servico: "Barba terapia", valor: 50, comissaoPercent: 0.4, metodo: "dinheiro", status: "pendente", pagoEm: null },
+  { id: "pg1", profissionalId: "p1", profissional: "Téo", agendamentoId: "a1", servico: "Corte + barba", valor: 8000, comissaoPercent: 0.5, metodo: "pix_dinamico", status: "pago", pagoEm: "2026-06-13T09:05:00Z" },
+  { id: "pg2", profissionalId: "p2", profissional: "Rafa", agendamentoId: "a2", servico: "Corte máquina", valor: 4500, comissaoPercent: 0.45, metodo: "cartao_debito", status: "pago", pagoEm: "2026-06-13T09:50:00Z" },
+  { id: "pg3", profissionalId: "p1", profissional: "Téo", agendamentoId: "a4", servico: "Corte tesoura", valor: 7000, comissaoPercent: 0.5, metodo: "pix_estatico", status: "pago", pagoEm: "2026-06-13T11:20:00Z" },
+  { id: "pg-cred1", profissionalId: "p1", profissional: "Téo", agendamentoId: null, servico: "Corte + barba", valor: 8000, comissaoPercent: 0.5, metodo: "cartao_credito", status: "pago", pagoEm: "2026-06-13T11:55:00Z" },
+  { id: "pg-av1", profissionalId: "p2", profissional: "Rafa", agendamentoId: null, servico: "Pézinho", valor: 2000, comissaoPercent: 0.45, metodo: "pix_estatico", status: "pago", pagoEm: "2026-06-13T12:10:00Z" },
+  { id: "pg-din1", profissionalId: "p3", profissional: "Bruno", agendamentoId: null, servico: "Acabamento", valor: 4000, comissaoPercent: 0.4, metodo: "dinheiro", status: "pago", pagoEm: "2026-06-13T13:30:00Z" },
+  { id: "pg-cred2", profissionalId: "p3", profissional: "Bruno", agendamentoId: null, servico: "Corte máquina", valor: 4500, comissaoPercent: 0.4, metodo: "cartao_credito", status: "pendente", pagoEm: null },
+  { id: "pg-din2", profissionalId: "p3", profissional: "Bruno", agendamentoId: "a3", servico: "Barba terapia", valor: 5000, comissaoPercent: 0.4, metodo: "dinheiro", status: "pendente", pagoEm: null },
 ];
 
 export const datas = [
@@ -102,13 +104,13 @@ export function resumoHoje(): ResumoHoje {
 }
 
 const CORTES_SEMANA: CortesDia[] = [
-  { dia: "Seg", cortes: 9, faturamento: 560 },
-  { dia: "Ter", cortes: 14, faturamento: 910 },
-  { dia: "Qua", cortes: 16, faturamento: 1080 },
-  { dia: "Qui", cortes: 19, faturamento: 1290 },
-  { dia: "Sex", cortes: 26, faturamento: 1840 },
-  { dia: "Sáb", cortes: 31, faturamento: 2210 },
-  { dia: "Dom", cortes: 6, faturamento: 380 },
+  { dia: "Seg", cortes: 9, faturamento: 56000 },
+  { dia: "Ter", cortes: 14, faturamento: 91000 },
+  { dia: "Qua", cortes: 16, faturamento: 108000 },
+  { dia: "Qui", cortes: 19, faturamento: 129000 },
+  { dia: "Sex", cortes: 26, faturamento: 184000 },
+  { dia: "Sáb", cortes: 31, faturamento: 221000 },
+  { dia: "Dom", cortes: 6, faturamento: 38000 },
 ];
 
 export interface AnaliseSemana {
@@ -330,7 +332,7 @@ export function clientesRecorrentes(): ClienteRecorrente[] {
 }
 
 // Evolução dos últimos 6 meses, terminando exatamente no faturamento mensal
-// projetado — para o gráfico fechar com o indicador de cima.
+// projetado — para o gráfico fechar com o indicador de cima. Valor em centavos.
 export function faturamentoMensal(): FaturamentoMes[] {
   const jun = Math.round(baseSemana().faturamento * ESCALA.mes);
   const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"];

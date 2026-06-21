@@ -103,6 +103,7 @@ create table cliente (
   unique (barbearia_id, whatsapp)
 );
 
+-- Espelha StatusAgendamento em apps/web/src/lib/types.ts (mesmos valores).
 create type status_agendamento as enum ('pendente', 'confirmado', 'concluido', 'cancelado');
 create type origem_agendamento as enum ('cliente', 'balcao');
 
@@ -132,7 +133,15 @@ alter table agendamento
   exclude using gist (profissional_id with =, tstzrange(inicio, fim) with &&)
   where (status <> 'cancelado');
 
-create type metodo_pagamento as enum ('pix_dinamico', 'pix_estatico', 'dinheiro', 'cartao');
+-- Espelha MetodoPagamento em apps/web/src/lib/types.ts.
+-- Cartão fica separado em débito/crédito (taxa e conciliação diferentes).
+create type metodo_pagamento as enum (
+  'pix_dinamico',
+  'pix_estatico',
+  'dinheiro',
+  'cartao_debito',
+  'cartao_credito'
+);
 create type status_pagamento as enum ('pendente', 'pago', 'expirado', 'estornado');
 
 -- Base da comissão: sempre vinculado a um profissional. comissao_percent
@@ -161,7 +170,9 @@ create index on pagamento (profissional_id, status);
 -- Gerado pelo fechamento automático (calendário do dono) ou sob demanda.
 -- ---------------------------------------------------------------------------
 create type status_repasse as enum ('pendente', 'pago', 'estornado');
-create type origem_repasse as enum ('automatico', 'manual');
+-- Espelha OrigemRepasse em apps/web/src/lib/repasse.ts.
+-- 'split' = creditado na hora pelo split do Pix (modo imediato).
+create type origem_repasse as enum ('automatico', 'manual', 'split');
 create table repasse (
   id              uuid primary key default gen_random_uuid(),
   barbearia_id    uuid not null references barbearia(id) on delete cascade,
@@ -169,7 +180,7 @@ create table repasse (
   periodo_inicio  timestamptz not null,
   periodo_fim     timestamptz not null,
   valor_centavos  int not null check (valor_centavos >= 0),
-  origem          origem_repasse not null,   -- automatico (calendário) ou manual (sob demanda)
+  origem          origem_repasse not null,   -- automatico (calendário), manual (sob demanda) ou split (imediato)
   status          status_repasse not null default 'pendente',
   comprovante     text,
   criado_em       timestamptz not null default now(),

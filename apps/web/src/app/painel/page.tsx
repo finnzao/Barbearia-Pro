@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatarBRL as brl } from "@/lib/money";
 import { Glyph } from "@/app/painel/glyphs";
 import { ATALHOS, SERVICOS } from "@/app/painel/secoes";
 import { resumoHoje } from "@/lib/mock-data";
 import { lerRepasse, pendenciasRepasse } from "@/lib/repasse";
 
 const CHAVE_FAV = "naregua:favoritos";
-const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Home() {
   const [favoritos, setFavoritos] = useState<string[]>([]);
@@ -30,7 +30,7 @@ export default function Home() {
       const proximo = atual.includes(key) ? atual.filter((k) => k !== key) : [...atual, key];
       try {
         window.localStorage.setItem(CHAVE_FAV, JSON.stringify(proximo));
-      } catch {}
+      } catch { }
       return proximo;
     });
   };

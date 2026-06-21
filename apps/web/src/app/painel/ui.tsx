@@ -8,8 +8,10 @@ import type {
   SelectHTMLAttributes,
 } from "react";
 import { Glyph } from "@/app/painel/glyphs";
+import { formatarBRL } from "@/lib/money";
 
-export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+// Fonte única: brl é só um apelido de formatarBRL (centavos → "R$ x,xx").
+export const brl = formatarBRL;
 export const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 type Tom = "neutral" | "green" | "amber" | "red" | "blue";

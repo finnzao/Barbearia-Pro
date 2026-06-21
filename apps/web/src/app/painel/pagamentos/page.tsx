@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Glyph } from "@/app/painel/glyphs";
 import { Avatar, Badge, Btn, Card, Money, Modal, Row, Seg, Select, brl, pct } from "@/app/painel/ui";
-import { comissoesDerivadas, pagamentos as pagamentosIniciais, profissionais } from "@/lib/mock-data";
-import { METODO_PAGAMENTO_LABEL, exigeBaixaManual } from "@/lib/pagamento";
+import { comissoesDerivadas, pagamentos as pagamentosIniciais, profissionais, servicos } from "@/lib/mock-data";
+import { METODO_PAGAMENTO_LABEL, METODOS_PAGAMENTO, exigeBaixaManual } from "@/lib/pagamento";
 import { CHAVE_CENTRAL, gradeQr, MARCADOR_PROF, NOME_RECEBEDOR, pixEstaticoBalcao } from "@/lib/pix";
 import {
   CONFIG_REPASSE_PADRAO,
@@ -19,7 +19,7 @@ import {
   type Repasse,
   type StatusRepasse,
 } from "@/lib/repasse";
-import type { ComissaoProfissional, Pagamento, Periodo } from "@/lib/types";
+import type { ComissaoProfissional, MetodoPagamento, Pagamento, Periodo } from "@/lib/types";
 
 const ABAS = [
   { id: "pagamentos", label: "Recebimentos" },
@@ -56,6 +56,16 @@ const DIAS_SEMANA = [
   { value: "0", label: "Domingo" },
 ];
 const DIAS_MES = Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
+
+// Recebimento manual de balcão só vale para dinheiro e cartão — o Pix (dinâmico
+// ou fixo) entra sozinho pela cobrança, então não aparece aqui.
+const METODOS_RECEBIMENTO = METODOS_PAGAMENTO.filter((m) => exigeBaixaManual(m.value));
+
+const FORM_RECEBIMENTO_VAZIO = {
+  profissionalId: "",
+  servicoId: "",
+  metodo: "" as "" | MetodoPagamento,
+};
 
 const FATOR_PERIODO: Record<Periodo, number> = { dia: 1, semana: 6, mes: 26 };
 const origemLabel: Record<OrigemRepasse, string> = { automatico: "Automático", manual: "Manual", split: "Split" };
@@ -97,6 +107,10 @@ export default function Pagamentos() {
   const [feitos, setFeitos] = useState<Repasse[]>([]);
   const [copiado, setCopiado] = useState(false);
 
+  // Registro manual de recebimento (dinheiro / cartão).
+  const [novoAberto, setNovoAberto] = useState(false);
+  const [formReceb, setFormReceb] = useState(FORM_RECEBIMENTO_VAZIO);
+
   useEffect(() => {
     const hash = window.location.hash;
     if (hash === "#comissoes") setAba("comissoes");
@@ -118,6 +132,37 @@ export default function Pagamentos() {
     setPags((atual) =>
       atual.map((pg) => (pg.id === id ? { ...pg, status: "pago", pagoEm: new Date().toISOString() } : pg)),
     );
+
+  // Recebimento de balcão: registra a entrada já como paga (o dinheiro/cartão
+  // acabou de acontecer na cadeira). Vai direto para comissões e repasses.
+  const servicoReceb = servicos.find((s) => s.id === formReceb.servicoId) || null;
+  const recebimentoValido =
+    formReceb.profissionalId !== "" && formReceb.servicoId !== "" && formReceb.metodo !== "";
+
+  const fecharRecebimento = () => {
+    setNovoAberto(false);
+    setFormReceb(FORM_RECEBIMENTO_VAZIO);
+  };
+
+  const registrarRecebimento = () => {
+    const servico = servicos.find((s) => s.id === formReceb.servicoId);
+    const prof = profissionais.find((p) => p.id === formReceb.profissionalId);
+    if (!servico || !prof || formReceb.metodo === "") return;
+    const novo: Pagamento = {
+      id: `pg-manual-${Date.now()}`,
+      profissionalId: prof.id,
+      profissional: prof.apelido,
+      agendamentoId: null,
+      servico: servico.nome,
+      valor: servico.preco,
+      comissaoPercent: prof.comissaoPercent,
+      metodo: formReceb.metodo,
+      status: "pago",
+      pagoEm: new Date().toISOString(),
+    };
+    setPags((atual) => [novo, ...atual]);
+    fecharRecebimento();
+  };
 
   const recebidosPagos = pags.filter((pg) => pg.status === "pago");
   const totalRecebido = recebidosPagos.reduce((s, pg) => s + pg.valor, 0);
@@ -198,7 +243,14 @@ export default function Pagamentos() {
             </div>
           </div>
 
-          <Card title="Recebimentos de hoje">
+          <Card
+            title="Recebimentos de hoje"
+            action={
+              <Btn variant="accent" size="sm" iconLeft={<Glyph name="novo" size={16} />} onClick={() => setNovoAberto(true)}>
+                Novo recebimento
+              </Btn>
+            }
+          >
             <div className="pn-list">
               {pags.map((pg) => {
                 const pago = pg.status === "pago";
@@ -398,6 +450,57 @@ export default function Pagamentos() {
           </Card>
         </>
       )}
+
+      <Modal
+        open={novoAberto}
+        onClose={fecharRecebimento}
+        title="Novo recebimento"
+        footer={
+          <>
+            <Btn variant="ghost" size="sm" onClick={fecharRecebimento}>
+              Cancelar
+            </Btn>
+            <Btn variant="accent" size="sm" disabled={!recebimentoValido} onClick={registrarRecebimento}>
+              Registrar
+            </Btn>
+          </>
+        }
+      >
+        <div className="pn-stack">
+          <p className="pn-note">
+            Registre aqui as entradas de balcão em dinheiro ou cartão. Pix dinâmico e Pix fixo entram sozinhos pela
+            cobrança — não precisam de registro manual.
+          </p>
+          <Select
+            label="Profissional"
+            placeholder="Quem atendeu"
+            options={profissionais.map((p) => ({ value: p.id, label: p.nome }))}
+            value={formReceb.profissionalId}
+            onChange={(e) => setFormReceb({ ...formReceb, profissionalId: e.target.value })}
+          />
+          <Select
+            label="Serviço"
+            placeholder="Selecione o serviço"
+            options={servicos.map((s) => ({ value: s.id, label: s.nome }))}
+            value={formReceb.servicoId}
+            onChange={(e) => setFormReceb({ ...formReceb, servicoId: e.target.value })}
+          />
+          <Select
+            label="Forma de pagamento"
+            placeholder="Dinheiro ou cartão"
+            hint="O Pix não aparece aqui porque é confirmado automaticamente no recebimento."
+            options={METODOS_RECEBIMENTO}
+            value={formReceb.metodo}
+            onChange={(e) => setFormReceb({ ...formReceb, metodo: e.target.value as MetodoPagamento })}
+          />
+          {servicoReceb && (
+            <div className="pn-rowline">
+              <span className="pn-note">Valor recebido</span>
+              <Money value={servicoReceb.preco} size="lg" />
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <Modal open={!!pixDe} onClose={() => setPixDe(null)} title={pixDe ? `Pix fixo · ${pixDe.nome}` : ""}>
         {pixDe && (

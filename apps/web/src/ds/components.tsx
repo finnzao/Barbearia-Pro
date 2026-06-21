@@ -7,6 +7,7 @@ import type {
   SelectHTMLAttributes,
 } from "react";
 import { Icon } from "./icons";
+import { partesMoeda } from "@/lib/money";
 
 const cx = (...parts: (string | false | null | undefined)[]) =>
   parts.filter(Boolean).join(" ");
@@ -271,6 +272,8 @@ export function Card({
 
 /* ---------------- Money ---------------- */
 // Toda figura financeira passa por aqui: mono, tabular, com centavos atenuados.
+// `value` chega SEMPRE em centavos; a conversão para reais é feita por
+// partesMoeda (lib/money.ts) — fonte única, nunca dividir por 100 aqui.
 type MoneyProps = {
   value?: number;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
@@ -280,22 +283,16 @@ type MoneyProps = {
   className?: string;
 };
 
-function fmt(value: number) {
-  const neg = value < 0;
-  const [int, dec] = Math.abs(value).toFixed(2).split(".");
-  return { neg, intGrouped: int.replace(/\B(?=(\d{3})+(?!\d))/g, "."), dec };
-}
-
 export function Money({ value = 0, size = "md", tone = "default", sign = "auto", symbol = true, className = "" }: MoneyProps) {
-  const { neg, intGrouped, dec } = fmt(value);
+  const { negativo, inteiro, centavos } = partesMoeda(value);
   const resolved = tone === "auto" ? (value < 0 ? "debit" : value > 0 ? "credit" : "default") : tone;
-  const prefix = neg ? "−" : sign === "always" && value > 0 ? "+" : "";
+  const prefix = negativo ? "−" : sign === "always" && value > 0 ? "+" : "";
   return (
     <span className={cx("nr-money", `nr-money--${size}`, resolved !== "default" && `nr-money--${resolved}`, className)}>
       {prefix}
       {symbol && <span className="nr-money__sym">R$</span>}
-      {intGrouped}
-      <span className="nr-money__cents">,{dec}</span>
+      {inteiro}
+      <span className="nr-money__cents">,{centavos}</span>
     </span>
   );
 }

@@ -5,6 +5,8 @@ import { Button, Card, Input, ListItem, Modal, Money } from "@/ds/components";
 import { Icon } from "@/ds/icons";
 import { servicos as servicosIniciais } from "@/lib/mock-data";
 import type { Servico } from "@/lib/types";
+import { reaisParaCentavos } from "@/lib/money";
+
 
 const FORM_VAZIO = { nome: "", duracaoMin: "", preco: "" };
 
@@ -13,7 +15,7 @@ export default function Servicos() {
   const [aberto, setAberto] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
 
-  const valido = form.nome.trim() !== "" && Number(form.duracaoMin) > 0 && Number(form.preco) >= 0;
+  const valido = form.nome.trim() !== "" && Number(form.duracaoMin) > 0 && reaisParaCentavos(form.preco) >= 0;
 
   const fechar = () => {
     setAberto(false);
