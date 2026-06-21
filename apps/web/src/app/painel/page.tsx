@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatarBRL as brl } from "@/lib/money";
+import { formatBRL as brl } from "@/lib/money";
 import { Glyph } from "@/app/painel/glyphs";
 import { ATALHOS, SERVICOS } from "@/app/painel/secoes";
 import { resumoHoje } from "@/lib/mock-data";

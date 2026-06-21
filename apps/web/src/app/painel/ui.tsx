@@ -8,10 +8,10 @@ import type {
   SelectHTMLAttributes,
 } from "react";
 import { Glyph } from "@/app/painel/glyphs";
-import { formatarBRL } from "@/lib/money";
+import { formatBRL } from "@/lib/money";
 
-// Fonte única: brl é só um apelido de formatarBRL (centavos → "R$ x,xx").
-export const brl = formatarBRL;
+// Fonte única: brl é só um apelido de formatBRL (centavos → "R$ x,xx").
+export const brl = formatBRL;
 export const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 type Tom = "neutral" | "green" | "amber" | "red" | "blue";
