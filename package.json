@@ -5,7 +5,12 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "db:generate": "pnpm --filter @naregua/api prisma:generate",
+    "db:migrate": "pnpm --filter @naregua/api migrate:dev",
+    "db:deploy": "pnpm --filter @naregua/api migrate:deploy",
+    "db:studio": "pnpm --filter @naregua/api prisma:studio",
+    "db:reset": "pnpm --filter @naregua/api exec prisma migrate reset"
   },
   "devDependencies": {
     "turbo": "^2.3.0"

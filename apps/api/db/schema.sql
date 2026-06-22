@@ -1,37 +1,50 @@
--- =============================================================================
--- NaRégua — esquema do banco (PostgreSQL)
--- Multi-tenant: tudo escopado por barbearia_id. Dinheiro em centavos (int).
--- Tempo em timestamptz (UTC no banco; fuso da barbearia só na exibição).
--- =============================================================================
+create extension if not exists "pgcrypto";
+create extension if not exists "btree_gist";
 
-create extension if not exists "pgcrypto";   -- gen_random_uuid()
-create extension if not exists "btree_gist";  -- trava anti-overlap em agendamento
+create type status_agendamento as enum ('pendente', 'confirmado', 'concluido', 'cancelado');
+create type origem_agendamento as enum ('cliente', 'balcao');
+create type metodo_pagamento as enum (
+  'pix_dinamico',
+  'pix_estatico',
+  'dinheiro',
+  'cartao_debito',
+  'cartao_credito'
+);
+create type status_pagamento as enum ('pendente', 'pago', 'expirado', 'estornado');
+create type status_repasse as enum ('pendente', 'pago', 'estornado');
+create type origem_repasse as enum ('automatico', 'manual', 'split');
+create type modo_repasse as enum ('imediato', 'periodico', 'manual');
+create type frequencia_repasse as enum ('semanal', 'quinzenal', 'mensal');
+create type papel_usuario as enum ('dono', 'profissional', 'recepcao');
+create type tipo_chave_pix as enum ('cpf', 'cnpj', 'email', 'telefone', 'aleatoria');
 
 create table barbearia (
-  id        uuid primary key default gen_random_uuid(),
-  nome      text not null,
-  slug      text not null unique,            -- URL pública: /agendar/<slug>
-  endereco  text,
-  telefone  text,
-  fuso      text not null default 'America/Sao_Paulo',
-  criado_em timestamptz not null default now()
+  id                     uuid primary key default gen_random_uuid(),
+  nome                   text not null,
+  slug                   text not null unique,
+  endereco               text,
+  telefone               text,
+  fuso                   text not null default 'America/Sao_Paulo',
+  pix_chave_central      text,
+  pix_tipo_chave_central tipo_chave_pix,
+  pix_nome_recebedor     text,
+  criado_em              timestamptz not null default now()
 );
 
--- Espelha apps/web/src/lib/settings.ts.
 create table config_barbearia (
   barbearia_id                 uuid primary key references barbearia(id) on delete cascade,
   cliente_escolhe_profissional boolean not null default true,
   cliente_escolhe_servico      boolean not null default true,
-  -- Repasse: o dono liga/desliga o automático e escolhe quando ele roda.
-  repasse_automatico           boolean not null default true,
-  repasse_frequencia           text not null default 'mensal'
-                                 check (repasse_frequencia in ('semanal', 'quinzenal', 'mensal')),
-  repasse_dia                  smallint not null default 1,  -- mensal: dia do mês (1-28); semanal/quinzenal: dia da semana (0-6)
-  atualizado_em                timestamptz not null default now()
+  repasse_modo                 modo_repasse not null default 'periodico',
+  repasse_frequencia           frequencia_repasse not null default 'mensal',
+  repasse_dia                  smallint not null default 5,
+  atualizado_em                timestamptz not null default now(),
+  check (
+    (repasse_frequencia = 'mensal' and repasse_dia between 1 and 28)
+    or (repasse_frequencia in ('semanal', 'quinzenal') and repasse_dia between 0 and 6)
+  )
 );
 
--- Horário semanal. dia_semana 0 = domingo (igual ao getDay() do JS).
--- Dia sem linha = fechado. Vários intervalos no mesmo dia = pausa (almoço).
 create table horario_funcionamento (
   id           uuid primary key default gen_random_uuid(),
   barbearia_id uuid not null references barbearia(id) on delete cascade,
@@ -42,6 +55,20 @@ create table horario_funcionamento (
 );
 create index on horario_funcionamento (barbearia_id, dia_semana);
 
+create table horario_excecao (
+  id           uuid primary key default gen_random_uuid(),
+  barbearia_id uuid not null references barbearia(id) on delete cascade,
+  data         date not null,
+  fechado      boolean not null default true,
+  abre         time,
+  fecha        time,
+  motivo       text,
+  criado_em    timestamptz not null default now(),
+  unique (barbearia_id, data),
+  check (fechado or (abre is not null and fecha is not null and fecha > abre))
+);
+create index on horario_excecao (barbearia_id, data);
+
 create table profissional (
   id               uuid primary key default gen_random_uuid(),
   barbearia_id     uuid not null references barbearia(id) on delete cascade,
@@ -49,21 +76,35 @@ create table profissional (
   apelido          text not null,
   cargo            text,
   comissao_percent numeric(5,4) not null default 0 check (comissao_percent between 0 and 1),
-  chave_pix        text,        -- cada profissional recebe direto na própria chave
-  pix_tipo_chave   text,        -- cpf | cnpj | email | telefone | aleatoria
+  chave_pix        text,
+  pix_tipo_chave   tipo_chave_pix,
+  pix_marcador     text,
   ativo            boolean not null default true,
   criado_em        timestamptz not null default now()
 );
 create index on profissional (barbearia_id);
+create unique index on profissional (barbearia_id, pix_marcador) where pix_marcador is not null;
 
--- Login do painel. profissional_id liga o usuário ao funcionário (futuro).
+create table bloqueio (
+  id              uuid primary key default gen_random_uuid(),
+  barbearia_id    uuid not null references barbearia(id) on delete cascade,
+  profissional_id uuid references profissional(id) on delete cascade,
+  inicio          timestamptz not null,
+  fim             timestamptz not null,
+  motivo          text,
+  criado_em       timestamptz not null default now(),
+  check (fim > inicio)
+);
+create index on bloqueio (barbearia_id, inicio);
+create index on bloqueio (profissional_id, inicio);
+
 create table usuario (
   id              uuid primary key default gen_random_uuid(),
   barbearia_id    uuid not null references barbearia(id) on delete cascade,
   profissional_id uuid references profissional(id) on delete set null,
   email           text not null,
   senha_hash      text not null,
-  papel           text not null default 'dono',
+  papel           papel_usuario not null default 'dono',
   criado_em       timestamptz not null default now(),
   unique (barbearia_id, email)
 );
@@ -103,18 +144,14 @@ create table cliente (
   unique (barbearia_id, whatsapp)
 );
 
--- Espelha StatusAgendamento em apps/web/src/lib/types.ts (mesmos valores).
-create type status_agendamento as enum ('pendente', 'confirmado', 'concluido', 'cancelado');
-create type origem_agendamento as enum ('cliente', 'balcao');
-
 create table agendamento (
   id              uuid primary key default gen_random_uuid(),
   barbearia_id    uuid not null references barbearia(id) on delete cascade,
-  profissional_id uuid references profissional(id) on delete set null,  -- null = qualquer
+  profissional_id uuid references profissional(id) on delete set null,
   servico_id      uuid references servico(id) on delete set null,
   cliente_id      uuid references cliente(id) on delete set null,
-  cliente_nome    text,                                                 -- fallback do balcão
-  preco_centavos  int check (preco_centavos >= 0),                      -- snapshot; null se em aberto
+  cliente_nome    text,
+  preco_centavos  int check (preco_centavos >= 0),
   inicio          timestamptz not null,
   fim             timestamptz not null,
   status          status_agendamento not null default 'confirmado',
@@ -127,52 +164,11 @@ create table agendamento (
 create index on agendamento (barbearia_id, inicio);
 create index on agendamento (profissional_id, inicio);
 
--- Dois agendamentos ativos não se sobrepõem no mesmo profissional.
 alter table agendamento
   add constraint agendamento_sem_overlap
   exclude using gist (profissional_id with =, tstzrange(inicio, fim) with &&)
   where (status <> 'cancelado');
 
--- Espelha MetodoPagamento em apps/web/src/lib/types.ts.
--- Cartão fica separado em débito/crédito (taxa e conciliação diferentes).
-create type metodo_pagamento as enum (
-  'pix_dinamico',
-  'pix_estatico',
-  'dinheiro',
-  'cartao_debito',
-  'cartao_credito'
-);
-create type status_pagamento as enum ('pendente', 'pago', 'expirado', 'estornado');
-
--- Base da comissão: sempre vinculado a um profissional. comissao_percent
--- congelado aqui para que mudar a taxa do profissional não reescreva o histórico.
-create table pagamento (
-  id               uuid primary key default gen_random_uuid(),
-  barbearia_id     uuid not null references barbearia(id) on delete cascade,
-  profissional_id  uuid not null references profissional(id) on delete restrict,
-  agendamento_id   uuid references agendamento(id) on delete set null,
-  servico_id       uuid references servico(id) on delete set null,
-  valor_centavos   int not null check (valor_centavos >= 0),
-  comissao_percent numeric(5,4) not null check (comissao_percent between 0 and 1),
-  metodo           metodo_pagamento not null,
-  status           status_pagamento not null default 'pendente',
-  txid             text,        -- só pix dinâmico
-  copia_cola       text,        -- só pix dinâmico
-  expira_em        timestamptz, -- só pix dinâmico
-  criado_em        timestamptz not null default now(),
-  pago_em          timestamptz
-);
-create index on pagamento (barbearia_id, criado_em);
-create index on pagamento (profissional_id, status);
-
--- ---------------------------------------------------------------------------
--- Repasse: o que a barbearia transfere para cada profissional ao liquidar.
--- Gerado pelo fechamento automático (calendário do dono) ou sob demanda.
--- ---------------------------------------------------------------------------
-create type status_repasse as enum ('pendente', 'pago', 'estornado');
--- Espelha OrigemRepasse em apps/web/src/lib/repasse.ts.
--- 'split' = creditado na hora pelo split do Pix (modo imediato).
-create type origem_repasse as enum ('automatico', 'manual', 'split');
 create table repasse (
   id              uuid primary key default gen_random_uuid(),
   barbearia_id    uuid not null references barbearia(id) on delete cascade,
@@ -180,7 +176,7 @@ create table repasse (
   periodo_inicio  timestamptz not null,
   periodo_fim     timestamptz not null,
   valor_centavos  int not null check (valor_centavos >= 0),
-  origem          origem_repasse not null,   -- automatico (calendário), manual (sob demanda) ou split (imediato)
+  origem          origem_repasse not null,
   status          status_repasse not null default 'pendente',
   comprovante     text,
   criado_em       timestamptz not null default now(),
@@ -190,16 +186,54 @@ create table repasse (
 create index on repasse (barbearia_id, criado_em);
 create index on repasse (profissional_id, status);
 
--- Liga cada pagamento ao repasse em que foi liquidado; NULL = ainda não repassado.
--- É o que impede pagar o profissional em dobro: o fechamento só pega os NULL.
-alter table pagamento add column repasse_id uuid references repasse(id) on delete set null;
+create table pagamento (
+  id               uuid primary key default gen_random_uuid(),
+  barbearia_id     uuid not null references barbearia(id) on delete cascade,
+  profissional_id  uuid not null references profissional(id) on delete restrict,
+  agendamento_id   uuid references agendamento(id) on delete set null,
+  servico_id       uuid references servico(id) on delete set null,
+  servico_nome     text,
+  valor_centavos   int not null check (valor_centavos >= 0),
+  comissao_percent numeric(5,4) not null check (comissao_percent between 0 and 1),
+  metodo           metodo_pagamento not null,
+  status           status_pagamento not null default 'pendente',
+  txid             text,
+  copia_cola       text,
+  expira_em        timestamptz,
+  repasse_id       uuid references repasse(id) on delete set null,
+  criado_em        timestamptz not null default now(),
+  pago_em          timestamptz
+);
+create index on pagamento (barbearia_id, criado_em);
+create index on pagamento (profissional_id, status);
 create index on pagamento (repasse_id);
 
--- Fidelidade por número: total de cortes concluídos de cada cliente.
+create table split_pagamento (
+  id                    uuid primary key default gen_random_uuid(),
+  pagamento_id          uuid not null unique references pagamento(id) on delete cascade,
+  barbearia_id          uuid not null references barbearia(id) on delete cascade,
+  profissional_id       uuid not null references profissional(id) on delete restrict,
+  chave_central         text not null,
+  marcador_prof         text not null,
+  chave_destino_prof    text,
+  tipo_chave_destino    tipo_chave_pix,
+  valor_total_centavos  int not null check (valor_total_centavos >= 0),
+  valor_salao_centavos  int not null check (valor_salao_centavos >= 0),
+  valor_prof_centavos   int not null check (valor_prof_centavos >= 0),
+  liquidado             boolean not null default false,
+  criado_em             timestamptz not null default now(),
+  liquidado_em          timestamptz,
+  check (valor_salao_centavos + valor_prof_centavos = valor_total_centavos)
+);
+create index on split_pagamento (barbearia_id, criado_em);
+create index on split_pagamento (profissional_id, liquidado);
+
 create view vw_cliente_fidelidade as
-select c.id      as cliente_id,
+select c.id        as cliente_id,
        c.whatsapp,
-       count(*)  as total_cortes
+       count(distinct a.id)                                                            as total_cortes,
+       coalesce(sum(pg.valor_centavos) filter (where pg.status = 'pago'), 0)::int      as total_gasto_centavos
 from cliente c
 join agendamento a on a.cliente_id = c.id and a.status = 'concluido'
+left join pagamento pg on pg.agendamento_id = a.id
 group by c.id, c.whatsapp;

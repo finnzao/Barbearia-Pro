@@ -1,216 +1,239 @@
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "btree_gist";
+create extension if not exists "pgcrypto";
+create extension if not exists "btree_gist";
 
-CREATE TYPE "status_agendamento" AS ENUM ('pendente', 'confirmado', 'concluido', 'cancelado');
-CREATE TYPE "origem_agendamento" AS ENUM ('cliente', 'balcao');
-CREATE TYPE "metodo_pagamento" AS ENUM ('pix_dinamico', 'pix_estatico', 'dinheiro', 'cartao_debito', 'cartao_credito');
-CREATE TYPE "status_pagamento" AS ENUM ('pendente', 'pago', 'expirado', 'estornado');
-CREATE TYPE "status_repasse" AS ENUM ('pendente', 'pago', 'estornado');
-CREATE TYPE "origem_repasse" AS ENUM ('automatico', 'manual', 'split');
-CREATE TYPE "modo_repasse" AS ENUM ('imediato', 'periodico', 'manual');
-CREATE TYPE "frequencia_repasse" AS ENUM ('semanal', 'quinzenal', 'mensal');
-
-CREATE TABLE "barbearia" (
-  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-  "nome" TEXT NOT NULL,
-  "slug" TEXT NOT NULL,
-  "endereco" TEXT,
-  "telefone" TEXT,
-  "fuso" TEXT NOT NULL DEFAULT 'America/Sao_Paulo',
-  "criado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "barbearia_pkey" PRIMARY KEY ("id")
+create type status_agendamento as enum ('pendente', 'confirmado', 'concluido', 'cancelado');
+create type origem_agendamento as enum ('cliente', 'balcao');
+create type metodo_pagamento as enum (
+  'pix_dinamico',
+  'pix_estatico',
+  'dinheiro',
+  'cartao_debito',
+  'cartao_credito'
 );
-CREATE UNIQUE INDEX "barbearia_slug_key" ON "barbearia" ("slug");
+create type status_pagamento as enum ('pendente', 'pago', 'expirado', 'estornado');
+create type status_repasse as enum ('pendente', 'pago', 'estornado');
+create type origem_repasse as enum ('automatico', 'manual', 'split');
+create type modo_repasse as enum ('imediato', 'periodico', 'manual');
+create type frequencia_repasse as enum ('semanal', 'quinzenal', 'mensal');
+create type papel_usuario as enum ('dono', 'profissional', 'recepcao');
+create type tipo_chave_pix as enum ('cpf', 'cnpj', 'email', 'telefone', 'aleatoria');
 
-CREATE TABLE "config_barbearia" (
-  "barbearia_id" UUID NOT NULL,
-  "cliente_escolhe_profissional" BOOLEAN NOT NULL DEFAULT true,
-  "cliente_escolhe_servico" BOOLEAN NOT NULL DEFAULT true,
-  "repasse_modo" "modo_repasse" NOT NULL DEFAULT 'periodico',
-  "repasse_frequencia" "frequencia_repasse" NOT NULL DEFAULT 'mensal',
-  "repasse_dia" SMALLINT NOT NULL DEFAULT 1,
-  "atualizado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "config_barbearia_pkey" PRIMARY KEY ("barbearia_id"),
-  CONSTRAINT "config_barbearia_repasse_dia_check" CHECK ("repasse_dia" BETWEEN 0 AND 31)
+create table barbearia (
+  id                     uuid primary key default gen_random_uuid(),
+  nome                   text not null,
+  slug                   text not null unique,
+  endereco               text,
+  telefone               text,
+  fuso                   text not null default 'America/Sao_Paulo',
+  pix_chave_central      text,
+  pix_tipo_chave_central tipo_chave_pix,
+  pix_nome_recebedor     text,
+  criado_em              timestamptz not null default now()
 );
 
-CREATE TABLE "horario_funcionamento" (
-  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-  "barbearia_id" UUID NOT NULL,
-  "dia_semana" SMALLINT NOT NULL,
-  "abre" TIME NOT NULL,
-  "fecha" TIME NOT NULL,
-  CONSTRAINT "horario_funcionamento_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "horario_funcionamento_dia_semana_check" CHECK ("dia_semana" BETWEEN 0 AND 6),
-  CONSTRAINT "horario_funcionamento_intervalo_check" CHECK ("fecha" > "abre")
-);
-CREATE INDEX "horario_funcionamento_barbearia_id_dia_semana_idx" ON "horario_funcionamento" ("barbearia_id", "dia_semana");
-
-CREATE TABLE "profissional" (
-  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-  "barbearia_id" UUID NOT NULL,
-  "nome" TEXT NOT NULL,
-  "apelido" TEXT NOT NULL,
-  "cargo" TEXT,
-  "comissao_percent" NUMERIC(5,4) NOT NULL DEFAULT 0,
-  "chave_pix" TEXT,
-  "pix_tipo_chave" TEXT,
-  "ativo" BOOLEAN NOT NULL DEFAULT true,
-  "criado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "profissional_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "profissional_comissao_percent_check" CHECK ("comissao_percent" BETWEEN 0 AND 1)
-);
-CREATE INDEX "profissional_barbearia_id_idx" ON "profissional" ("barbearia_id");
-
-CREATE TABLE "usuario" (
-  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-  "barbearia_id" UUID NOT NULL,
-  "profissional_id" UUID,
-  "email" TEXT NOT NULL,
-  "senha_hash" TEXT NOT NULL,
-  "papel" TEXT NOT NULL DEFAULT 'dono',
-  "criado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "usuario_pkey" PRIMARY KEY ("id")
-);
-CREATE UNIQUE INDEX "usuario_barbearia_id_email_key" ON "usuario" ("barbearia_id", "email");
-
-CREATE TABLE "categoria_servico" (
-  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-  "barbearia_id" UUID NOT NULL,
-  "nome" TEXT NOT NULL,
-  "criado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "categoria_servico_pkey" PRIMARY KEY ("id")
-);
-CREATE INDEX "categoria_servico_barbearia_id_idx" ON "categoria_servico" ("barbearia_id");
-
-CREATE TABLE "servico" (
-  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-  "barbearia_id" UUID NOT NULL,
-  "categoria_id" UUID,
-  "nome" TEXT NOT NULL,
-  "duracao_min" INTEGER NOT NULL,
-  "preco_centavos" INTEGER NOT NULL,
-  "ativo" BOOLEAN NOT NULL DEFAULT true,
-  "criado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "servico_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "servico_duracao_min_check" CHECK ("duracao_min" > 0),
-  CONSTRAINT "servico_preco_centavos_check" CHECK ("preco_centavos" >= 0)
-);
-CREATE INDEX "servico_barbearia_id_idx" ON "servico" ("barbearia_id");
-
-CREATE TABLE "profissional_servico" (
-  "profissional_id" UUID NOT NULL,
-  "servico_id" UUID NOT NULL,
-  CONSTRAINT "profissional_servico_pkey" PRIMARY KEY ("profissional_id", "servico_id")
+create table config_barbearia (
+  barbearia_id                 uuid primary key references barbearia(id) on delete cascade,
+  cliente_escolhe_profissional boolean not null default true,
+  cliente_escolhe_servico      boolean not null default true,
+  repasse_modo                 modo_repasse not null default 'periodico',
+  repasse_frequencia           frequencia_repasse not null default 'mensal',
+  repasse_dia                  smallint not null default 5,
+  atualizado_em                timestamptz not null default now(),
+  check (
+    (repasse_frequencia = 'mensal' and repasse_dia between 1 and 28)
+    or (repasse_frequencia in ('semanal', 'quinzenal') and repasse_dia between 0 and 6)
+  )
 );
 
-CREATE TABLE "cliente" (
-  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-  "barbearia_id" UUID NOT NULL,
-  "nome" TEXT NOT NULL,
-  "whatsapp" TEXT NOT NULL,
-  "criado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "cliente_pkey" PRIMARY KEY ("id")
+create table horario_funcionamento (
+  id           uuid primary key default gen_random_uuid(),
+  barbearia_id uuid not null references barbearia(id) on delete cascade,
+  dia_semana   smallint not null check (dia_semana between 0 and 6),
+  abre         time not null,
+  fecha        time not null,
+  check (fecha > abre)
 );
-CREATE UNIQUE INDEX "cliente_barbearia_id_whatsapp_key" ON "cliente" ("barbearia_id", "whatsapp");
+create index on horario_funcionamento (barbearia_id, dia_semana);
 
-CREATE TABLE "agendamento" (
-  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-  "barbearia_id" UUID NOT NULL,
-  "profissional_id" UUID,
-  "servico_id" UUID,
-  "cliente_id" UUID,
-  "cliente_nome" TEXT,
-  "preco_centavos" INTEGER,
-  "inicio" TIMESTAMPTZ NOT NULL,
-  "fim" TIMESTAMPTZ NOT NULL,
-  "status" "status_agendamento" NOT NULL DEFAULT 'confirmado',
-  "origem" "origem_agendamento" NOT NULL DEFAULT 'cliente',
-  "observacao" TEXT,
-  "criado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  "atualizado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "agendamento_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "agendamento_preco_centavos_check" CHECK ("preco_centavos" >= 0),
-  CONSTRAINT "agendamento_intervalo_check" CHECK ("fim" > "inicio")
+create table horario_excecao (
+  id           uuid primary key default gen_random_uuid(),
+  barbearia_id uuid not null references barbearia(id) on delete cascade,
+  data         date not null,
+  fechado      boolean not null default true,
+  abre         time,
+  fecha        time,
+  motivo       text,
+  criado_em    timestamptz not null default now(),
+  unique (barbearia_id, data),
+  check (fechado or (abre is not null and fecha is not null and fecha > abre))
 );
-CREATE INDEX "agendamento_barbearia_id_inicio_idx" ON "agendamento" ("barbearia_id", "inicio");
-CREATE INDEX "agendamento_profissional_id_inicio_idx" ON "agendamento" ("profissional_id", "inicio");
+create index on horario_excecao (barbearia_id, data);
 
-CREATE TABLE "repasse" (
-  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-  "barbearia_id" UUID NOT NULL,
-  "profissional_id" UUID NOT NULL,
-  "periodo_inicio" TIMESTAMPTZ NOT NULL,
-  "periodo_fim" TIMESTAMPTZ NOT NULL,
-  "valor_centavos" INTEGER NOT NULL,
-  "origem" "origem_repasse" NOT NULL,
-  "status" "status_repasse" NOT NULL DEFAULT 'pendente',
-  "comprovante" TEXT,
-  "criado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  "pago_em" TIMESTAMPTZ,
-  CONSTRAINT "repasse_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "repasse_valor_centavos_check" CHECK ("valor_centavos" >= 0),
-  CONSTRAINT "repasse_periodo_check" CHECK ("periodo_fim" >= "periodo_inicio")
+create table profissional (
+  id               uuid primary key default gen_random_uuid(),
+  barbearia_id     uuid not null references barbearia(id) on delete cascade,
+  nome             text not null,
+  apelido          text not null,
+  cargo            text,
+  comissao_percent numeric(5,4) not null default 0 check (comissao_percent between 0 and 1),
+  chave_pix        text,
+  pix_tipo_chave   tipo_chave_pix,
+  pix_marcador     text,
+  ativo            boolean not null default true,
+  criado_em        timestamptz not null default now()
 );
-CREATE INDEX "repasse_barbearia_id_criado_em_idx" ON "repasse" ("barbearia_id", "criado_em");
-CREATE INDEX "repasse_profissional_id_status_idx" ON "repasse" ("profissional_id", "status");
+create index on profissional (barbearia_id);
+create unique index on profissional (barbearia_id, pix_marcador) where pix_marcador is not null;
 
-CREATE TABLE "pagamento" (
-  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-  "barbearia_id" UUID NOT NULL,
-  "profissional_id" UUID NOT NULL,
-  "agendamento_id" UUID,
-  "servico_id" UUID,
-  "valor_centavos" INTEGER NOT NULL,
-  "comissao_percent" NUMERIC(5,4) NOT NULL,
-  "metodo" "metodo_pagamento" NOT NULL,
-  "status" "status_pagamento" NOT NULL DEFAULT 'pendente',
-  "txid" TEXT,
-  "copia_cola" TEXT,
-  "expira_em" TIMESTAMPTZ,
-  "criado_em" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  "pago_em" TIMESTAMPTZ,
-  "repasse_id" UUID,
-  CONSTRAINT "pagamento_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "pagamento_valor_centavos_check" CHECK ("valor_centavos" >= 0),
-  CONSTRAINT "pagamento_comissao_percent_check" CHECK ("comissao_percent" BETWEEN 0 AND 1)
+create table bloqueio (
+  id              uuid primary key default gen_random_uuid(),
+  barbearia_id    uuid not null references barbearia(id) on delete cascade,
+  profissional_id uuid references profissional(id) on delete cascade,
+  inicio          timestamptz not null,
+  fim             timestamptz not null,
+  motivo          text,
+  criado_em       timestamptz not null default now(),
+  check (fim > inicio)
 );
-CREATE INDEX "pagamento_barbearia_id_criado_em_idx" ON "pagamento" ("barbearia_id", "criado_em");
-CREATE INDEX "pagamento_profissional_id_status_idx" ON "pagamento" ("profissional_id", "status");
-CREATE INDEX "pagamento_repasse_id_idx" ON "pagamento" ("repasse_id");
+create index on bloqueio (barbearia_id, inicio);
+create index on bloqueio (profissional_id, inicio);
 
-ALTER TABLE "config_barbearia" ADD CONSTRAINT "config_barbearia_barbearia_id_fkey" FOREIGN KEY ("barbearia_id") REFERENCES "barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "horario_funcionamento" ADD CONSTRAINT "horario_funcionamento_barbearia_id_fkey" FOREIGN KEY ("barbearia_id") REFERENCES "barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "profissional" ADD CONSTRAINT "profissional_barbearia_id_fkey" FOREIGN KEY ("barbearia_id") REFERENCES "barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "usuario" ADD CONSTRAINT "usuario_barbearia_id_fkey" FOREIGN KEY ("barbearia_id") REFERENCES "barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "usuario" ADD CONSTRAINT "usuario_profissional_id_fkey" FOREIGN KEY ("profissional_id") REFERENCES "profissional"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "categoria_servico" ADD CONSTRAINT "categoria_servico_barbearia_id_fkey" FOREIGN KEY ("barbearia_id") REFERENCES "barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "servico" ADD CONSTRAINT "servico_barbearia_id_fkey" FOREIGN KEY ("barbearia_id") REFERENCES "barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "servico" ADD CONSTRAINT "servico_categoria_id_fkey" FOREIGN KEY ("categoria_id") REFERENCES "categoria_servico"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "profissional_servico" ADD CONSTRAINT "profissional_servico_profissional_id_fkey" FOREIGN KEY ("profissional_id") REFERENCES "profissional"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "profissional_servico" ADD CONSTRAINT "profissional_servico_servico_id_fkey" FOREIGN KEY ("servico_id") REFERENCES "servico"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "cliente" ADD CONSTRAINT "cliente_barbearia_id_fkey" FOREIGN KEY ("barbearia_id") REFERENCES "barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "agendamento" ADD CONSTRAINT "agendamento_barbearia_id_fkey" FOREIGN KEY ("barbearia_id") REFERENCES "barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "agendamento" ADD CONSTRAINT "agendamento_profissional_id_fkey" FOREIGN KEY ("profissional_id") REFERENCES "profissional"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "agendamento" ADD CONSTRAINT "agendamento_servico_id_fkey" FOREIGN KEY ("servico_id") REFERENCES "servico"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "agendamento" ADD CONSTRAINT "agendamento_cliente_id_fkey" FOREIGN KEY ("cliente_id") REFERENCES "cliente"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "repasse" ADD CONSTRAINT "repasse_barbearia_id_fkey" FOREIGN KEY ("barbearia_id") REFERENCES "barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "repasse" ADD CONSTRAINT "repasse_profissional_id_fkey" FOREIGN KEY ("profissional_id") REFERENCES "profissional"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "pagamento" ADD CONSTRAINT "pagamento_barbearia_id_fkey" FOREIGN KEY ("barbearia_id") REFERENCES "barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "pagamento" ADD CONSTRAINT "pagamento_profissional_id_fkey" FOREIGN KEY ("profissional_id") REFERENCES "profissional"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "pagamento" ADD CONSTRAINT "pagamento_agendamento_id_fkey" FOREIGN KEY ("agendamento_id") REFERENCES "agendamento"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "pagamento" ADD CONSTRAINT "pagamento_servico_id_fkey" FOREIGN KEY ("servico_id") REFERENCES "servico"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "pagamento" ADD CONSTRAINT "pagamento_repasse_id_fkey" FOREIGN KEY ("repasse_id") REFERENCES "repasse"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+create table usuario (
+  id              uuid primary key default gen_random_uuid(),
+  barbearia_id    uuid not null references barbearia(id) on delete cascade,
+  profissional_id uuid references profissional(id) on delete set null,
+  email           text not null,
+  senha_hash      text not null,
+  papel           papel_usuario not null default 'dono',
+  criado_em       timestamptz not null default now(),
+  unique (barbearia_id, email)
+);
 
-ALTER TABLE "agendamento"
-  ADD CONSTRAINT "agendamento_sem_overlap"
-  EXCLUDE USING gist ("profissional_id" WITH =, tstzrange("inicio", "fim") WITH &&)
-  WHERE ("status" <> 'cancelado');
+create table categoria_servico (
+  id           uuid primary key default gen_random_uuid(),
+  barbearia_id uuid not null references barbearia(id) on delete cascade,
+  nome         text not null,
+  criado_em    timestamptz not null default now()
+);
+create index on categoria_servico (barbearia_id);
 
-CREATE VIEW "vw_cliente_fidelidade" AS
-SELECT c."id" AS "cliente_id",
-       c."whatsapp",
-       count(*) AS "total_cortes"
-FROM "cliente" c
-JOIN "agendamento" a ON a."cliente_id" = c."id" AND a."status" = 'concluido'
-GROUP BY c."id", c."whatsapp";
+create table servico (
+  id             uuid primary key default gen_random_uuid(),
+  barbearia_id   uuid not null references barbearia(id) on delete cascade,
+  categoria_id   uuid references categoria_servico(id) on delete set null,
+  nome           text not null,
+  duracao_min    int not null check (duracao_min > 0),
+  preco_centavos int not null check (preco_centavos >= 0),
+  ativo          boolean not null default true,
+  criado_em      timestamptz not null default now()
+);
+create index on servico (barbearia_id);
+
+create table profissional_servico (
+  profissional_id uuid not null references profissional(id) on delete cascade,
+  servico_id      uuid not null references servico(id) on delete cascade,
+  primary key (profissional_id, servico_id)
+);
+
+create table cliente (
+  id           uuid primary key default gen_random_uuid(),
+  barbearia_id uuid not null references barbearia(id) on delete cascade,
+  nome         text not null,
+  whatsapp     text not null,
+  criado_em    timestamptz not null default now(),
+  unique (barbearia_id, whatsapp)
+);
+
+create table agendamento (
+  id              uuid primary key default gen_random_uuid(),
+  barbearia_id    uuid not null references barbearia(id) on delete cascade,
+  profissional_id uuid references profissional(id) on delete set null,
+  servico_id      uuid references servico(id) on delete set null,
+  cliente_id      uuid references cliente(id) on delete set null,
+  cliente_nome    text,
+  preco_centavos  int check (preco_centavos >= 0),
+  inicio          timestamptz not null,
+  fim             timestamptz not null,
+  status          status_agendamento not null default 'confirmado',
+  origem          origem_agendamento not null default 'cliente',
+  observacao      text,
+  criado_em       timestamptz not null default now(),
+  atualizado_em   timestamptz not null default now(),
+  check (fim > inicio)
+);
+create index on agendamento (barbearia_id, inicio);
+create index on agendamento (profissional_id, inicio);
+
+alter table agendamento
+  add constraint agendamento_sem_overlap
+  exclude using gist (profissional_id with =, tstzrange(inicio, fim) with &&)
+  where (status <> 'cancelado');
+
+create table repasse (
+  id              uuid primary key default gen_random_uuid(),
+  barbearia_id    uuid not null references barbearia(id) on delete cascade,
+  profissional_id uuid not null references profissional(id) on delete restrict,
+  periodo_inicio  timestamptz not null,
+  periodo_fim     timestamptz not null,
+  valor_centavos  int not null check (valor_centavos >= 0),
+  origem          origem_repasse not null,
+  status          status_repasse not null default 'pendente',
+  comprovante     text,
+  criado_em       timestamptz not null default now(),
+  pago_em         timestamptz,
+  check (periodo_fim >= periodo_inicio)
+);
+create index on repasse (barbearia_id, criado_em);
+create index on repasse (profissional_id, status);
+
+create table pagamento (
+  id               uuid primary key default gen_random_uuid(),
+  barbearia_id     uuid not null references barbearia(id) on delete cascade,
+  profissional_id  uuid not null references profissional(id) on delete restrict,
+  agendamento_id   uuid references agendamento(id) on delete set null,
+  servico_id       uuid references servico(id) on delete set null,
+  servico_nome     text,
+  valor_centavos   int not null check (valor_centavos >= 0),
+  comissao_percent numeric(5,4) not null check (comissao_percent between 0 and 1),
+  metodo           metodo_pagamento not null,
+  status           status_pagamento not null default 'pendente',
+  txid             text,
+  copia_cola       text,
+  expira_em        timestamptz,
+  repasse_id       uuid references repasse(id) on delete set null,
+  criado_em        timestamptz not null default now(),
+  pago_em          timestamptz
+);
+create index on pagamento (barbearia_id, criado_em);
+create index on pagamento (profissional_id, status);
+create index on pagamento (repasse_id);
+
+create table split_pagamento (
+  id                    uuid primary key default gen_random_uuid(),
+  pagamento_id          uuid not null unique references pagamento(id) on delete cascade,
+  barbearia_id          uuid not null references barbearia(id) on delete cascade,
+  profissional_id       uuid not null references profissional(id) on delete restrict,
+  chave_central         text not null,
+  marcador_prof         text not null,
+  chave_destino_prof    text,
+  tipo_chave_destino    tipo_chave_pix,
+  valor_total_centavos  int not null check (valor_total_centavos >= 0),
+  valor_salao_centavos  int not null check (valor_salao_centavos >= 0),
+  valor_prof_centavos   int not null check (valor_prof_centavos >= 0),
+  liquidado             boolean not null default false,
+  criado_em             timestamptz not null default now(),
+  liquidado_em          timestamptz,
+  check (valor_salao_centavos + valor_prof_centavos = valor_total_centavos)
+);
+create index on split_pagamento (barbearia_id, criado_em);
+create index on split_pagamento (profissional_id, liquidado);
+
+create view vw_cliente_fidelidade as
+select c.id        as cliente_id,
+       c.whatsapp,
+       count(distinct a.id)                                                            as total_cortes,
+       coalesce(sum(pg.valor_centavos) filter (where pg.status = 'pago'), 0)::int      as total_gasto_centavos
+from cliente c
+join agendamento a on a.cliente_id = c.id and a.status = 'concluido'
+left join pagamento pg on pg.agendamento_id = a.id
+group by c.id, c.whatsapp;

@@ -74,17 +74,40 @@ enum FrequenciaRepasse {
   @@map("frequencia_repasse")
 }
 
+enum PapelUsuario {
+  dono
+  profissional
+  recepcao
+
+  @@map("papel_usuario")
+}
+
+enum TipoChavePix {
+  cpf
+  cnpj
+  email
+  telefone
+  aleatoria
+
+  @@map("tipo_chave_pix")
+}
+
 model Barbearia {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome      String
-  slug      String   @unique
-  endereco  String?
-  telefone  String?
-  fuso      String   @default("America/Sao_Paulo")
-  criadoEm  DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome                String
+  slug                String        @unique
+  endereco            String?
+  telefone            String?
+  fuso                String        @default("America/Sao_Paulo")
+  pixChaveCentral     String?       @map("pix_chave_central")
+  pixTipoChaveCentral TipoChavePix? @map("pix_tipo_chave_central")
+  pixNomeRecebedor    String?       @map("pix_nome_recebedor")
+  criadoEm            DateTime      @default(now()) @map("criado_em") @db.Timestamptz(6)
 
   config            ConfigBarbearia?
   horarios          HorarioFuncionamento[]
+  horarioExcecoes   HorarioExcecao[]
+  bloqueios         Bloqueio[]
   profissionais     Profissional[]
   usuarios          Usuario[]
   categoriasServico CategoriaServico[]
@@ -93,6 +116,7 @@ model Barbearia {
   agendamentos      Agendamento[]
   pagamentos        Pagamento[]
   repasses          Repasse[]
+  splits            SplitPagamento[]
 
   @@map("barbearia")
 }
@@ -103,7 +127,7 @@ model ConfigBarbearia {
   clienteEscolheServico      Boolean           @default(true) @map("cliente_escolhe_servico")
   repasseModo                ModoRepasse       @default(periodico) @map("repasse_modo")
   repasseFrequencia          FrequenciaRepasse @default(mensal) @map("repasse_frequencia")
-  repasseDia                 Int               @default(1) @map("repasse_dia") @db.SmallInt
+  repasseDia                 Int               @default(5) @map("repasse_dia") @db.SmallInt
   atualizadoEm               DateTime          @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
 
   barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
@@ -124,6 +148,23 @@ model HorarioFuncionamento {
   @@map("horario_funcionamento")
 }
 
+model HorarioExcecao {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId String    @map("barbearia_id") @db.Uuid
+  data        DateTime  @db.Date
+  fechado     Boolean   @default(true)
+  abre        DateTime? @db.Time(6)
+  fecha       DateTime? @db.Time(6)
+  motivo      String?
+  criadoEm    DateTime  @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+
+  @@unique([barbeariaId, data])
+  @@index([barbeariaId, data])
+  @@map("horario_excecao")
+}
+
 model Profissional {
   id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   barbeariaId     String       @map("barbearia_id") @db.Uuid
@@ -132,7 +173,8 @@ model Profissional {
   cargo           String?
   comissaoPercent Decimal      @default(0) @map("comissao_percent") @db.Decimal(5, 4)
   chavePix        String?      @map("chave_pix")
-  pixTipoChave    String?      @map("pix_tipo_chave")
+  pixTipoChave    TipoChavePix? @map("pix_tipo_chave")
+  pixMarcador     String?      @map("pix_marcador")
   ativo           Boolean      @default(true)
   criadoEm        DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
 
@@ -142,19 +184,38 @@ model Profissional {
   agendamentos Agendamento[]
   pagamentos   Pagamento[]
   repasses     Repasse[]
+  bloqueios    Bloqueio[]
+  splits       SplitPagamento[]
 
   @@index([barbeariaId])
   @@map("profissional")
 }
 
-model Usuario {
+model Bloqueio {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   barbeariaId    String   @map("barbearia_id") @db.Uuid
   profissionalId String?  @map("profissional_id") @db.Uuid
-  email          String
-  senhaHash      String   @map("senha_hash")
-  papel          String   @default("dono")
+  inicio         DateTime @db.Timestamptz(6)
+  fim            DateTime @db.Timestamptz(6)
+  motivo         String?
   criadoEm       DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  profissional Profissional? @relation(fields: [profissionalId], references: [id], onDelete: Cascade)
+
+  @@index([barbeariaId, inicio])
+  @@index([profissionalId, inicio])
+  @@map("bloqueio")
+}
+
+model Usuario {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId    String       @map("barbearia_id") @db.Uuid
+  profissionalId String?      @map("profissional_id") @db.Uuid
+  email          String
+  senhaHash      String       @map("senha_hash")
+  papel          PapelUsuario @default(dono)
+  criadoEm       DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
 
   barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   profissional Profissional? @relation(fields: [profissionalId], references: [id], onDelete: SetNull)
@@ -254,6 +315,7 @@ model Pagamento {
   profissionalId  String          @map("profissional_id") @db.Uuid
   agendamentoId   String?         @map("agendamento_id") @db.Uuid
   servicoId       String?         @map("servico_id") @db.Uuid
+  servicoNome     String?         @map("servico_nome")
   valorCentavos   Int             @map("valor_centavos")
   comissaoPercent Decimal         @map("comissao_percent") @db.Decimal(5, 4)
   metodo          MetodoPagamento
@@ -261,20 +323,46 @@ model Pagamento {
   txid            String?
   copiaCola       String?         @map("copia_cola")
   expiraEm        DateTime?       @map("expira_em") @db.Timestamptz(6)
+  repasseId       String?         @map("repasse_id") @db.Uuid
   criadoEm        DateTime        @default(now()) @map("criado_em") @db.Timestamptz(6)
   pagoEm          DateTime?       @map("pago_em") @db.Timestamptz(6)
-  repasseId       String?         @map("repasse_id") @db.Uuid
 
-  barbearia    Barbearia    @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  profissional Profissional @relation(fields: [profissionalId], references: [id], onDelete: Restrict)
-  agendamento  Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
-  servico      Servico?     @relation(fields: [servicoId], references: [id], onDelete: SetNull)
-  repasse      Repasse?     @relation(fields: [repasseId], references: [id], onDelete: SetNull)
+  barbearia    Barbearia       @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  profissional Profissional    @relation(fields: [profissionalId], references: [id], onDelete: Restrict)
+  agendamento  Agendamento?    @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+  servico      Servico?        @relation(fields: [servicoId], references: [id], onDelete: SetNull)
+  repasse      Repasse?        @relation(fields: [repasseId], references: [id], onDelete: SetNull)
+  split        SplitPagamento?
 
   @@index([barbeariaId, criadoEm])
   @@index([profissionalId, status])
   @@index([repasseId])
   @@map("pagamento")
+}
+
+model SplitPagamento {
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pagamentoId         String       @unique @map("pagamento_id") @db.Uuid
+  barbeariaId         String       @map("barbearia_id") @db.Uuid
+  profissionalId      String       @map("profissional_id") @db.Uuid
+  chaveCentral        String       @map("chave_central")
+  marcadorProf        String       @map("marcador_prof")
+  chaveDestinoProf    String?      @map("chave_destino_prof")
+  tipoChaveDestino    TipoChavePix? @map("tipo_chave_destino")
+  valorTotalCentavos  Int          @map("valor_total_centavos")
+  valorSalaoCentavos  Int          @map("valor_salao_centavos")
+  valorProfCentavos   Int          @map("valor_prof_centavos")
+  liquidado           Boolean      @default(false)
+  criadoEm            DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
+  liquidadoEm         DateTime?    @map("liquidado_em") @db.Timestamptz(6)
+
+  pagamento    Pagamento    @relation(fields: [pagamentoId], references: [id], onDelete: Cascade)
+  barbearia    Barbearia    @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  profissional Profissional @relation(fields: [profissionalId], references: [id], onDelete: Restrict)
+
+  @@index([barbeariaId, criadoEm])
+  @@index([profissionalId, liquidado])
+  @@map("split_pagamento")
 }
 
 model Repasse {
