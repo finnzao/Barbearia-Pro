@@ -1,10 +1,9 @@
 import { Module } from "@nestjs/common";
 import { AppController } from "./app.controller";
+import { PrismaModule } from "./prisma/prisma.module";
 
-// Monolito modular: cada domínio (agendamentos, pagamentos, etc.) entra como
-// um módulo próprio aqui conforme for implementado.
 @Module({
-  imports: [],
+  imports: [PrismaModule],
   controllers: [AppController],
   providers: [],
 })

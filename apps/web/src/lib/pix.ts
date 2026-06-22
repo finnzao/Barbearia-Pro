@@ -1,3 +1,4 @@
+import { toReais } from "@/lib/money";
 
 export const CHAVE_CENTRAL = "salao@barbeariaregua.com";
 export const NOME_RECEBEDOR = "Barbearia Régua";
@@ -18,7 +19,7 @@ export interface CobrancaPix {
 
 export function gerarCobrancaPix(valorCentavos: number, marcadorProf: string): CobrancaPix {
   const txid = crypto.randomUUID().replace(/-/g, "").slice(0, 18);
-  const valor = (valorCentavos / 100).toFixed(2);
+  const valor = toReais(valorCentavos).toFixed(2);
   const ref = `${marcadorProf}-${txid}`;
   const copiaCola = `00020126BR.GOV.BCB.PIX${CHAVE_CENTRAL}5204000053039865406${valor}5802BR6007NAREGUA62${ref}6304`;
   const expiraEm = new Date(Date.now() + 15 * 60 * 1000).toISOString();

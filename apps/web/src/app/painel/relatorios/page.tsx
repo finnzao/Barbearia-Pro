@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { BarChart } from "@/components/bar-chart";
 import { Avatar, Badge, Card, Money, Row, Seg, brl } from "@/app/painel/ui";
+import { toReais } from "@/lib/money";
 import { METODO_PAGAMENTO_LABEL } from "@/lib/pagamento";
 import {
   analiseSemana,
@@ -108,7 +109,7 @@ export default function Relatorios() {
         action={<span className="pn-note">últimos 6 meses · em milhares</span>}
       >
         <BarChart
-          data={evolucao.map((m) => ({ label: m.mes, value: Math.round(m.faturamento / 1000) }))}
+          data={evolucao.map((m) => ({ label: m.mes, value: Math.round(toReais(m.faturamento) / 1000) }))}
           unidade="k"
           accentMax
         />

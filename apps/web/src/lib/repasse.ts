@@ -1,7 +1,6 @@
 import { pagamentos, profissionais } from "@/lib/mock-data";
 
 export type FrequenciaRepasse = "semanal" | "quinzenal" | "mensal";
-
 export type ModoRepasse = "imediato" | "periodico" | "manual";
 export type OrigemRepasse = "automatico" | "manual" | "split";
 export type StatusRepasse = "pendente" | "pago" | "estornado";
@@ -10,6 +9,12 @@ export interface ConfigRepasse {
   modo: ModoRepasse;
   frequencia: FrequenciaRepasse;
   dia: number;
+}
+
+export interface ConfigRepasseRow {
+  repasse_modo: ModoRepasse;
+  repasse_frequencia: FrequenciaRepasse;
+  repasse_dia: number;
 }
 
 export interface PendenciaRepasse {
@@ -39,6 +44,18 @@ export const CONFIG_REPASSE_PADRAO: ConfigRepasse = {
 };
 
 const CHAVE = "naregua:config-repasse";
+
+export const configRepasseToRow = (cfg: ConfigRepasse): ConfigRepasseRow => ({
+  repasse_modo: cfg.modo,
+  repasse_frequencia: cfg.frequencia,
+  repasse_dia: cfg.dia,
+});
+
+export const configRepasseFromRow = (row: ConfigRepasseRow): ConfigRepasse => ({
+  modo: row.repasse_modo,
+  frequencia: row.repasse_frequencia,
+  dia: row.repasse_dia,
+});
 
 export function lerRepasse(): ConfigRepasse {
   if (typeof window === "undefined") return CONFIG_REPASSE_PADRAO;
@@ -93,7 +110,6 @@ export function pendenciasRepasse(
   });
 }
 
-// Valores em centavos (igual ao banco): 312000 = R$ 3.120,00.
 export const repassesAnteriores: Repasse[] = [
   {
     id: "rp-202605-p1",

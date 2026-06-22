@@ -60,7 +60,7 @@ export default function Cobranca() {
 
   const gerar = () => {
     if (!servico || !prof) return;
-    setCobranca(gerarCobrancaPix(servico.preco * 100, MARCADOR_PROF[prof.id] ?? prof.id));
+    setCobranca(gerarCobrancaPix(servico.preco, MARCADOR_PROF[prof.id] ?? prof.id));
     setEstado("aguardando");
   };
 
