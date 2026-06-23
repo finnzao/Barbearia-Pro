@@ -1,9 +1,13 @@
 {
-  "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
-  "testEnvironment": "node",
-  "testRegex": ".e2e-spec.ts$",
+  "roots": ["<rootDir>"],
+  "maxWorkers": 1,
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "testRegex": "\\.e2e-spec\\.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
-  }
+    "^.+\\.ts$": ["ts-jest", { "tsconfig": "<rootDir>/../tsconfig.json" }]
+  },
+  "testEnvironment": "node",
+  "setupFiles": ["<rootDir>/support/jest.setup.ts"],
+  "globalSetup": "<rootDir>/support/global-setup.js"
 }

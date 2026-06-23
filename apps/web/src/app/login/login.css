@@ -1,0 +1,121 @@
+.login-tela {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(
+      1200px 600px at 50% -10%,
+      var(--accent-soft, #f3ead9),
+      transparent 60%
+    ),
+    var(--bg-page);
+}
+
+.login-cartao {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-sunken, #fff);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl, 20px);
+  padding: 34px 30px 26px;
+  box-shadow: 0 24px 60px -28px rgba(20, 14, 4, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-cartao::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--brass-400, #c79a4f),
+    var(--accent, #b08443),
+    var(--brass-600, #8a672f)
+  );
+}
+
+.login-cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.login-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-weight: var(--fw-bold);
+  font-size: 17px;
+  color: var(--primary);
+  margin-bottom: 14px;
+}
+
+.login-marca__mark {
+  width: 26px;
+  height: 26px;
+  padding: 4px;
+  border-radius: var(--radius-md, 10px);
+  background: var(--accent-soft, #f3ead9);
+  color: var(--accent, #b08443);
+}
+
+.login-eyebrow {
+  font-size: 12px;
+  font-weight: var(--fw-semibold, 600);
+  letter-spacing: var(--eyebrow-tracking, 0.08em);
+  text-transform: uppercase;
+  color: var(--accent, #b08443);
+}
+
+.login-titulo {
+  font-family: var(--font-display);
+  font-weight: var(--fw-black, 800);
+  font-size: 28px;
+  line-height: var(--leading-tight, 1.1);
+  letter-spacing: var(--display-tracking, -0.02em);
+  margin: 0;
+  color: var(--primary);
+}
+
+.login-sub {
+  margin: 2px 0 0;
+  color: var(--ledger-ink, #6b6357);
+  font-size: 14px;
+  line-height: var(--leading-normal, 1.5);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login-erro {
+  background: var(--amber-bg);
+  border: 1px solid var(--amber-line);
+  color: var(--amber-text);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: var(--fw-medium, 500);
+}
+
+.login-rodape {
+  margin: 22px 0 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--ledger-ink, #8a8275);
+}
+
+.auth-carregando {
+  min-height: 60dvh;
+  display: grid;
+  place-items: center;
+  color: var(--ledger-ink, #777);
+  font-size: 14px;
+}

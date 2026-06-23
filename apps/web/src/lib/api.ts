@@ -8,7 +8,8 @@ import type {
 } from "./types";
 import {
   agendamentos,
-  comissoesPorPeriodo,
+  comissoesDerivadas,
+  pagamentos,
   profissionais,
   resumoHoje,
   servicos,
@@ -39,9 +40,9 @@ export async function getAgendamentos(): Promise<Agendamento[]> {
   return agendamentos;
 }
 
-export async function getComissoes(periodo: Periodo): Promise<ComissaoProfissional[]> {
+export async function getComissoes(_periodo: Periodo): Promise<ComissaoProfissional[]> {
   await delay();
-  return comissoesPorPeriodo(periodo);
+  return comissoesDerivadas(pagamentos);
 }
 
 export async function getProfissionais(): Promise<Profissional[]> {

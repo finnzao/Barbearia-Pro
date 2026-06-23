@@ -217,11 +217,26 @@ model Usuario {
   papel          PapelUsuario @default(dono)
   criadoEm       DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
 
-  barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  profissional Profissional? @relation(fields: [profissionalId], references: [id], onDelete: SetNull)
+  barbearia     Barbearia      @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  profissional  Profissional?  @relation(fields: [profissionalId], references: [id], onDelete: SetNull)
+  refreshTokens RefreshToken[]
 
   @@unique([barbeariaId, email])
   @@map("usuario")
+}
+
+model RefreshToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId  String    @map("usuario_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiraEm   DateTime  @map("expira_em") @db.Timestamptz(6)
+  revogadoEm DateTime? @map("revogado_em") @db.Timestamptz(6)
+  criadoEm   DateTime  @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("refresh_token")
 }
 
 model CategoriaServico {

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Glyph } from "@/app/painel/glyphs";
 import { NAV } from "@/app/painel/secoes";
+import { Protegido } from "@/components/protegido";
+import { SairButton } from "@/components/sair-button";
 import "@/app/painel/painel.css";
 import "@/app/painel/painel-extras.css";
 
@@ -16,6 +18,7 @@ export default function PainelLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   return (
+    <Protegido papeis={["dono", "recepcao"]}>
     <div className="pn-shell">
       <header className="pn-top">
         <Link href="/painel" className="pn-brand" aria-label="NaRégua, início">
@@ -47,6 +50,8 @@ export default function PainelLayout({ children }: { children: ReactNode }) {
           <Glyph name="pix" size={18} />
           <span>Gerar Pix</span>
         </Link>
+
+        <SairButton />
       </header>
 
       <main className="pn-main">{children}</main>
@@ -70,5 +75,6 @@ export default function PainelLayout({ children }: { children: ReactNode }) {
         })}
       </nav>
     </div>
+    </Protegido>
   );
 }

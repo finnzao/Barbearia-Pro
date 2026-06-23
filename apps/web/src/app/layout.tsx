@@ -4,6 +4,7 @@ import { Archivo, Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import "../ds/tokens.css";
 import "../ds/components.css";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth-context";
 
 // As três famílias do design system. As variáveis casam com a ponte em tokens.css.
 const archivo = Archivo({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--nr-archivo", display: "swap" });
@@ -18,7 +19,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${archivo.variable} ${bricolage.variable} ${jetbrains.variable}`}>
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

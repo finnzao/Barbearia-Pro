@@ -261,7 +261,7 @@ export default function Relatorios() {
         </div>
       </Card>
 
-      <Card title="Horários de maior movimento" action={<Badge tone="brass">Pico às {horaPico.hora}</Badge>}>
+      <Card title="Horários de maior movimento" action={<Badge tone="amber">Pico às {horaPico.hora}</Badge>}>
         <BarChart data={horas.map((h) => ({ label: h.hora, value: h.cortes }))} accentMax />
         <p className="pn-note" style={{ marginTop: "var(--sp-2)" }}>
           O fim de tarde concentra a maior demanda. Reforce a equipe entre 16h e 18h para reduzir a fila.
