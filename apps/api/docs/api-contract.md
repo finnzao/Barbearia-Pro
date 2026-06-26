@@ -170,3 +170,138 @@ Requer `papel = profissional` (`RolesGuard`). Duplo escopo: `barbearia_id`
 #### `GET /api/funcionario/repasses`
 
 - **Response `200`:** `{ "repasses": [...], "pendenteCentavos", "pagoCentavos" }`.
+
+### Serviços — `/api/servicos`
+
+Tenant-scoped. Leitura: qualquer usuário autenticado. Escrita: `dono`.
+
+- `GET /api/servicos` — lista os serviços da barbearia.
+- `GET /api/servicos/:id` — um serviço (`404` se de outra barbearia).
+- `POST /api/servicos` — `{ nome, duracaoMin (≥1), precoCentavos (≥0), categoriaId?, ativo? }` → `201`.
+- `PATCH /api/servicos/:id` — campos parciais do criar.
+- `DELETE /api/servicos/:id` — `{ "success": true }`.
+
+### Profissionais — `/api/profissionais`
+
+Tenant-scoped. Leitura: autenticado. Escrita: `dono`.
+
+- `GET /api/profissionais` · `GET /api/profissionais/:id`
+- `POST /api/profissionais` — `{ nome, apelido, cargo?, comissaoPercent? (0–1), chavePix?, pixTipoChave?, pixMarcador?, ativo? }` → `201`.
+- `PATCH /api/profissionais/:id` · `DELETE /api/profissionais/:id`
+
+### Clientes — `/api/clientes`
+
+Tenant-scoped. Leitura: autenticado. Escrita: `dono`, `recepcao`.
+
+- `GET /api/clientes` · `GET /api/clientes/:id`
+- `POST /api/clientes` — `{ nome, whatsapp }` → `201` (`409 CONFLITO` se whatsapp duplicado na barbearia).
+- `PATCH /api/clientes/:id` · `DELETE /api/clientes/:id`
+
+### Agendamentos — `/api/agendamentos`
+
+Tenant-scoped. Leitura: autenticado. Escrita: `dono`, `recepcao`. Datas em UTC
+(ISO-8601). O banco impede sobreposição de horário para o mesmo profissional
+(constraint `exclude using gist`).
+
+- `GET /api/agendamentos?data=YYYY-MM-DD&profissionalId=` — lista (filtros
+  opcionais por dia e por profissional).
+- `GET /api/agendamentos/:id`
+- `POST /api/agendamentos` — `{ inicio, fim, profissionalId?, servicoId?, clienteId?, clienteNome?, precoCentavos?, status?, origem?, observacao? }` → `201`.
+  - `400 REQUISICAO_INVALIDA` se `fim` ≤ `inicio`.
+  - `409 CONFLITO` se o horário se sobrepõe a outro do mesmo profissional.
+- `PATCH /api/agendamentos/:id` — campos parciais (inclui transição de `status`).
+- `DELETE /api/agendamentos/:id`
+
+### Pagamentos — `/api/pagamentos`
+
+Tenant-scoped. Leitura: autenticado. Escrita: `dono`, `recepcao`.
+
+- `GET /api/pagamentos?profissionalId=&status=` — lista.
+- `GET /api/pagamentos/:id`
+- `POST /api/pagamentos` — `{ profissionalId, valorCentavos, metodo, comissaoPercent?, agendamentoId?, servicoId?, servicoNome? }` → `201`.
+  - `comissaoPercent` omitido herda o do profissional.
+  - Métodos manuais (`dinheiro`, `cartao_debito`, `cartao_credito`) já nascem `pago` (recebimento manual); `pix_*` nasce `pendente`.
+- `PATCH /api/pagamentos/:id/pagar` — baixa manual (`pendente` → `pago`).
+
+### Comissões — `/api/comissoes`
+
+Somente `dono`. Agregação dos pagamentos **pagos** por profissional.
+
+- `GET /api/comissoes?profissionalId=&de=YYYY-MM-DD&ate=YYYY-MM-DD` →
+  `[{ profissionalId, profissional, atendimentos, faturadoCentavos, comissaoCentavos, liquidoBarbeariaCentavos }]`.
+
+### Repasses — `/api/repasses`
+
+Somente `dono`. Tenant-scoped.
+
+- `GET /api/repasses?profissionalId=&status=` · `GET /api/repasses/:id`
+- `POST /api/repasses` — `{ profissionalId, periodoInicio, periodoFim, valorCentavos, origem }` → `201`.
+- `PATCH /api/repasses/:id/pagar` — marca como `pago`.
+
+### Configuração — `/api/config`
+
+Tenant-scoped. Leitura: autenticado. Escrita: `dono`.
+
+- `GET /api/config` — config da barbearia (criada com padrões na primeira leitura).
+- `PATCH /api/config` — `{ clienteEscolheProfissional?, clienteEscolheServico?, repasseModo?, repasseFrequencia?, repasseDia? }`.
+- `GET /api/config/horarios` — horários de funcionamento.
+- `PUT /api/config/horarios` — `{ horarios: [{ diaSemana (0–6), abre "HH:MM", fecha "HH:MM" }] }` (substitui a semana).
+
+### Relatórios — `/api/relatorios`
+
+Somente `dono`. Agregações dos pagamentos pagos.
+
+- `GET /api/relatorios/financeiro?de=YYYY-MM-DD&ate=YYYY-MM-DD` →
+  `{ faturamentoCentavos, comissoesCentavos, liquidoCentavos, atendimentos, ticketMedioCentavos }`.
+- `GET /api/relatorios/servicos?de=&ate=` →
+  `[{ servico, quantidade, receitaCentavos }]` (agrupado por `servicoNome`).
+- `GET /api/relatorios/formas-pagamento?de=&ate=` →
+  `[{ metodo, quantidade, totalCentavos }]` (agrupado por método).
+- `GET /api/relatorios/evolucao` →
+  `[{ mes, faturamentoCentavos }]` (últimos 6 meses, dos pagamentos pagos).
+- `GET /api/relatorios/picos` →
+  `{ dias: [{ dia, cortes, faturamentoCentavos }], horas: [{ hora, cortes }] }`
+  (movimento por dia da semana e por hora, dos agendamentos não cancelados).
+- `GET /api/relatorios/clientes-recorrentes` →
+  `[{ cliente, visitas, totalCentavos }]` (top 8 por visitas concluídas).
+
+## Booking público e cliente — `/api/publico` e `/api/cliente`
+
+Rotas **sem JWT de staff** (`@Public`). O tenant é resolvido pela **slug** da
+barbearia na URL (não pelo token). O cliente tem sessão própria (JWT com
+`tipo: "cliente"`, validado pelo `ClienteJwtGuard`), separada da do staff.
+Datas no corpo são `data` (YYYY-MM-DD) + `hora` (HH:MM) **no fuso da barbearia**
+(convertidos para UTC no servidor).
+
+### Leitura pública
+
+- `GET /api/publico/:slug` → `{ id, nome, slug, fuso, clienteEscolheProfissional, clienteEscolheServico }`.
+- `GET /api/publico/:slug/servicos` → serviços ativos.
+- `GET /api/publico/:slug/profissionais` → profissionais ativos.
+- `GET /api/publico/:slug/horarios?data=&servicoId=&profissionalId=` →
+  `[{ hora }]` disponíveis (respeita horário de funcionamento/exceção e
+  agendamentos existentes; passo de 30 min).
+
+### Agendar (sem login)
+
+- `POST /api/publico/:slug/agendar` —
+  `{ servicoId, data, hora, nome, whatsapp, profissionalId? }` → `201`
+  (cria `cliente` por upsert e agendamento `pendente`/origem `cliente`; se não
+  informar profissional, escolhe um disponível). `409` se o horário conflita.
+
+### Login do cliente (OTP prioritário + senha)
+
+- `POST /api/publico/:slug/otp` — `{ whatsapp }` → `{ enviado: true }` (envia o
+  código por WhatsApp; em dev/teste retorna `codigo`). Rate limit 3/min.
+- `POST /api/publico/:slug/login/otp` — `{ whatsapp, codigo }` →
+  `{ accessToken, cliente }` (código de 6 dígitos, uso único, expira em ~10 min,
+  trava após 5 tentativas; cria o cliente se ainda não existir).
+- `POST /api/publico/:slug/login/senha` — `{ whatsapp, senha }` →
+  `{ accessToken, cliente }` (só funciona se o cliente já definiu senha).
+
+### Área do cliente (requer JWT de cliente)
+
+- `GET /api/cliente/me` → `{ id, nome, whatsapp, temSenha }`.
+- `GET /api/cliente/meus-agendamentos` → agendamentos do próprio cliente.
+- `POST /api/cliente/agendamentos/:id/cancelar` → cancela um agendamento próprio.
+- `POST /api/cliente/definir-senha` — `{ senha }` → habilita login por senha.

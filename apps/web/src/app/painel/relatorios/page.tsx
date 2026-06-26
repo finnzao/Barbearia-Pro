@@ -1,21 +1,31 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { BarChart } from "@/components/bar-chart";
 import { Avatar, Badge, Card, Money, Row, Seg, brl } from "@/app/painel/ui";
 import { toReais } from "@/lib/money";
 import { METODO_PAGAMENTO_LABEL } from "@/lib/pagamento";
 import {
-  analiseSemana,
-  clientesRecorrentes,
-  cortesPorHora,
-  faturamentoMensal,
-  formasPagamento,
-  receitaPorProfissional,
-  relatorioFinanceiro,
-  servicosRealizados,
-} from "@/lib/mock-data";
-import type { Periodo } from "@/lib/types";
+  getClientesRecorrentes,
+  getEvolucaoMensal,
+  getFormasPagamento,
+  getPicos,
+  getReceitaProfissional,
+  getRelatorioFinanceiro,
+  getServicosRealizados,
+} from "@/lib/api";
+import type { AnaliseSemana } from "@/lib/mock-data";
+import type {
+  ClienteRecorrente,
+  CortesDia,
+  FaixaHora,
+  FaturamentoMes,
+  FormaPagamentoResumo,
+  Periodo,
+  ReceitaProfissional,
+  RelatorioFinanceiro,
+  ServicoRealizado,
+} from "@/lib/types";
 
 const ABAS_PERIODO = [
   { id: "dia", label: "Hoje" },
@@ -43,19 +53,63 @@ function Meter({ value, max, soft }: { value: number; max: number; soft?: boolea
   );
 }
 
+const FIN_VAZIO: RelatorioFinanceiro = {
+  faturamento: 0,
+  comissoes: 0,
+  liquido: 0,
+  atendimentos: 0,
+  ticketMedio: 0,
+};
+
+const DIA_VAZIO: CortesDia = { dia: "", cortes: 0, faturamento: 0 };
+const SEMANA_VAZIA: AnaliseSemana = {
+  dias: [],
+  maisMovimentado: DIA_VAZIO,
+  menosMovimentado: DIA_VAZIO,
+  totalCortes: 0,
+};
+
 export default function Relatorios() {
   const [periodo, setPeriodo] = useState<Periodo>("semana");
+  const [fin, setFin] = useState<RelatorioFinanceiro>(FIN_VAZIO);
+  const [receitas, setReceitas] = useState<ReceitaProfissional[]>([]);
+  const [servicos, setServicos] = useState<ServicoRealizado[]>([]);
+  const [formas, setFormas] = useState<FormaPagamentoResumo[]>([]);
+  const [clientes, setClientes] = useState<ClienteRecorrente[]>([]);
+  const [evolucao, setEvolucao] = useState<FaturamentoMes[]>([]);
+  const [semana, setSemana] = useState<AnaliseSemana>(SEMANA_VAZIA);
+  const [horas, setHoras] = useState<FaixaHora[]>([]);
 
-  const fin = useMemo(() => relatorioFinanceiro(periodo), [periodo]);
-  const receitas = useMemo(() => receitaPorProfissional(periodo), [periodo]);
-  const servicos = useMemo(() => servicosRealizados(periodo), [periodo]);
-  const formas = useMemo(() => formasPagamento(periodo), [periodo]);
+  useEffect(() => {
+    getRelatorioFinanceiro(periodo)
+      .then(setFin)
+      .catch(() => setFin(FIN_VAZIO));
+    getReceitaProfissional(periodo)
+      .then(setReceitas)
+      .catch(() => setReceitas([]));
+    getServicosRealizados(periodo)
+      .then(setServicos)
+      .catch(() => setServicos([]));
+    getFormasPagamento(periodo)
+      .then(setFormas)
+      .catch(() => setFormas([]));
+  }, [periodo]);
 
   // Painéis de contexto: grão próprio (semana / 6 meses), não seguem o seletor.
-  const clientes = useMemo(() => clientesRecorrentes(), []);
-  const evolucao = useMemo(() => faturamentoMensal(), []);
-  const semana = useMemo(() => analiseSemana(), []);
-  const horas = useMemo(() => cortesPorHora(), []);
+  useEffect(() => {
+    getClientesRecorrentes()
+      .then(setClientes)
+      .catch(() => setClientes([]));
+    getEvolucaoMensal()
+      .then(setEvolucao)
+      .catch(() => setEvolucao([]));
+    getPicos()
+      .then((p) => {
+        setSemana(p.analise);
+        setHoras(p.horas);
+      })
+      .catch(() => {});
+  }, []);
 
   const maxReceita = Math.max(...receitas.map((r) => r.receita), 1);
   const maxComissao = Math.max(...receitas.map((r) => r.comissao), 1);
@@ -65,7 +119,9 @@ export default function Relatorios() {
 
   const maisServico = servicos[0];
   const menosServico = servicos[servicos.length - 1];
-  const horaPico = horas.reduce((m, h) => (h.cortes > m.cortes ? h : m), horas[0]);
+  const horaPico = horas.length
+    ? horas.reduce((m, h) => (h.cortes > m.cortes ? h : m), horas[0])
+    : { hora: "—", cortes: 0 };
   const totalComissoes = receitas.reduce((s, r) => s + r.comissao, 0);
 
   return (
@@ -170,18 +226,20 @@ export default function Relatorios() {
       </div>
 
       <Card title="Serviços realizados" action={<span className="pn-note">{SUB_PERIODO[periodo]}</span>}>
-        <div className="rep-highlights">
-          <div className="rep-highlight">
-            <span className="rep-highlight__lbl">Mais realizado</span>
-            <span className="rep-highlight__val">{maisServico.servico}</span>
-            <span className="rep-highlight__note">{maisServico.quantidade} atendimentos · {brl(maisServico.receita)}</span>
+        {maisServico && menosServico && (
+          <div className="rep-highlights">
+            <div className="rep-highlight">
+              <span className="rep-highlight__lbl">Mais realizado</span>
+              <span className="rep-highlight__val">{maisServico.servico}</span>
+              <span className="rep-highlight__note">{maisServico.quantidade} atendimentos · {brl(maisServico.receita)}</span>
+            </div>
+            <div className="rep-highlight">
+              <span className="rep-highlight__lbl">Menos realizado</span>
+              <span className="rep-highlight__val">{menosServico.servico}</span>
+              <span className="rep-highlight__note">{menosServico.quantidade} atendimentos · {brl(menosServico.receita)}</span>
+            </div>
           </div>
-          <div className="rep-highlight">
-            <span className="rep-highlight__lbl">Menos realizado</span>
-            <span className="rep-highlight__val">{menosServico.servico}</span>
-            <span className="rep-highlight__note">{menosServico.quantidade} atendimentos · {brl(menosServico.receita)}</span>
-          </div>
-        </div>
+        )}
         <div className="pn-list">
           {servicos.map((s) => (
             <Row

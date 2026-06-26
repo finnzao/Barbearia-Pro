@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { Button, Switch } from "@/ds/components";
 import { Icon } from "@/ds/icons";
+import { getHorarios, salvarHorarios } from "@/lib/api";
 import {
   DIAS,
   HORARIO_PADRAO,
-  lerHorario,
-  salvarHorario,
   type DiaSemana,
   type HorarioDia,
   type HorarioSemana,
@@ -17,9 +16,10 @@ export function HorarioFuncionamento() {
   const [horario, setHorario] = useState<HorarioSemana>(HORARIO_PADRAO);
   const [salvo, setSalvo] = useState(false);
 
-  // localStorage só existe no cliente, então hidrata depois da montagem.
   useEffect(() => {
-    setHorario(lerHorario());
+    getHorarios()
+      .then(setHorario)
+      .catch(() => setHorario(HORARIO_PADRAO));
   }, []);
 
   const atualizar = (dia: DiaSemana, patch: Partial<HorarioDia>) => {
@@ -27,8 +27,8 @@ export function HorarioFuncionamento() {
     setSalvo(false);
   };
 
-  const salvar = () => {
-    salvarHorario(horario);
+  const salvar = async () => {
+    await salvarHorarios(horario);
     setSalvo(true);
   };
 

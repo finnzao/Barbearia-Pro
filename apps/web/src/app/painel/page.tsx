@@ -5,14 +5,24 @@ import Link from "next/link";
 import { formatBRL as brl } from "@/lib/money";
 import { Glyph } from "@/app/painel/glyphs";
 import { ATALHOS, SERVICOS } from "@/app/painel/secoes";
-import { resumoHoje } from "@/lib/mock-data";
-import { lerRepasse, pendenciasRepasse } from "@/lib/repasse";
+import { getResumoHoje } from "@/lib/api";
+import type { ResumoHoje } from "@/lib/types";
 
 const CHAVE_FAV = "naregua:favoritos";
 
+const RESUMO_VAZIO: ResumoHoje = {
+  data: "",
+  faturamento: 0,
+  atendimentos: 0,
+  ticketMedio: 0,
+  comissoesApagar: 0,
+  proximos: [],
+  comissoes: [],
+};
+
 export default function Home() {
   const [favoritos, setFavoritos] = useState<string[]>([]);
-  const [aRepassar, setARepassar] = useState(0);
+  const [resumo, setResumo] = useState<ResumoHoje>(RESUMO_VAZIO);
 
   useEffect(() => {
     try {
@@ -21,8 +31,9 @@ export default function Home() {
     } catch {
       setFavoritos([]);
     }
-    const modo = lerRepasse().modo;
-    setARepassar(pendenciasRepasse(modo).reduce((s, p) => (p.liquido > 0 ? s + p.liquido : s), 0));
+    getResumoHoje()
+      .then(setResumo)
+      .catch(() => {});
   }, []);
 
   const alternarFavorito = (key: string) => {
@@ -35,7 +46,7 @@ export default function Home() {
     });
   };
 
-  const r = resumoHoje();
+  const r = resumo;
   const fixados = SERVICOS.filter((s) => favoritos.includes(s.key));
 
   return (
@@ -55,7 +66,7 @@ export default function Home() {
           </div>
           <div className="pn-statcard">
             <span className="pn-statcard__lbl">A repassar</span>
-            <span className="pn-statcard__num">{brl(aRepassar)}</span>
+            <span className="pn-statcard__num">{brl(r.comissoesApagar)}</span>
           </div>
         </div>
       </section>

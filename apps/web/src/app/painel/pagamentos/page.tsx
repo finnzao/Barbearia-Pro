@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Glyph } from "@/app/painel/glyphs";
 import { Avatar, Badge, Btn, Card, Money, Modal, Row, Seg, Select, brl, pct } from "@/app/painel/ui";
-import { comissoesDerivadas, pagamentos as pagamentosIniciais, profissionais, servicos } from "@/lib/mock-data";
+import { comissoesDerivadas } from "@/lib/mock-data";
+import {
+  criarPagamento,
+  darBaixaPagamento,
+  getPagamentos,
+  getProfissionais,
+  getServicos,
+  type PagamentoLista,
+} from "@/lib/api";
 import { METODO_PAGAMENTO_LABEL, METODOS_PAGAMENTO, exigeBaixaManual } from "@/lib/pagamento";
 import { CHAVE_CENTRAL, gradeQr, MARCADOR_PROF, NOME_RECEBEDOR, pixEstaticoBalcao } from "@/lib/pix";
 import {
@@ -19,7 +27,14 @@ import {
   type Repasse,
   type StatusRepasse,
 } from "@/lib/repasse";
-import type { ComissaoProfissional, MetodoPagamento, Pagamento, Periodo } from "@/lib/types";
+import type {
+  ComissaoProfissional,
+  MetodoPagamento,
+  Pagamento,
+  Periodo,
+  Profissional,
+  Servico,
+} from "@/lib/types";
 
 const ABAS = [
   { id: "pagamentos", label: "Recebimentos" },
@@ -74,6 +89,21 @@ const statusRepasseTom: Record<StatusRepasse, "green" | "amber" | "red"> = { pen
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 
+function mapPagamento(p: PagamentoLista, profs: Profissional[]): Pagamento {
+  return {
+    id: p.id,
+    profissionalId: p.profissionalId,
+    profissional: profs.find((x) => x.id === p.profissionalId)?.apelido ?? "",
+    agendamentoId: p.agendamentoId,
+    servico: p.servicoNome,
+    valor: p.valorCentavos,
+    comissaoPercent: Number(p.comissaoPercent),
+    metodo: p.metodo,
+    status: p.status,
+    pagoEm: p.pagoEm,
+  };
+}
+
 function rotuloPeriodo(r: Repasse): string {
   const ini = new Date(`${r.periodoInicio}T00:00:00`);
   const fim = new Date(`${r.periodoFim}T00:00:00`);
@@ -101,7 +131,9 @@ export default function Pagamentos() {
   const [aba, setAba] = useState("pagamentos");
   const [periodo, setPeriodo] = useState<Periodo>("dia");
   const [pixDe, setPixDe] = useState<{ id: string; nome: string } | null>(null);
-  const [pags, setPags] = useState<Pagamento[]>(pagamentosIniciais);
+  const [pags, setPags] = useState<Pagamento[]>([]);
+  const [profs, setProfs] = useState<Profissional[]>([]);
+  const [servs, setServs] = useState<Servico[]>([]);
   const [cfg, setCfg] = useState<ConfigRepasse>(CONFIG_REPASSE_PADRAO);
   const [repassados, setRepassados] = useState<Set<string>>(new Set());
   const [feitos, setFeitos] = useState<Repasse[]>([]);
@@ -116,6 +148,13 @@ export default function Pagamentos() {
     if (hash === "#comissoes") setAba("comissoes");
     else if (hash === "#repasses") setAba("repasses");
     setCfg(lerRepasse());
+    Promise.all([getProfissionais(), getServicos(), getPagamentos()])
+      .then(([ps, ss, pgs]) => {
+        setProfs(ps);
+        setServs(ss);
+        setPags(pgs.map((p) => mapPagamento(p, ps)));
+      })
+      .catch(() => {});
   }, []);
 
   const ajustarCfg = (patch: Partial<ConfigRepasse>) => {
@@ -128,14 +167,16 @@ export default function Pagamentos() {
   const mudarFrequencia = (frequencia: FrequenciaRepasse) =>
     ajustarCfg({ frequencia, dia: frequencia === "mensal" ? 5 : 1 });
 
-  const darBaixa = (id: string) =>
+  const darBaixa = async (id: string) => {
+    const atualizado = await darBaixaPagamento(id);
     setPags((atual) =>
-      atual.map((pg) => (pg.id === id ? { ...pg, status: "pago", pagoEm: new Date().toISOString() } : pg)),
+      atual.map((pg) => (pg.id === id ? mapPagamento(atualizado, profs) : pg)),
     );
+  };
 
   // Recebimento de balcão: registra a entrada já como paga (o dinheiro/cartão
   // acabou de acontecer na cadeira). Vai direto para comissões e repasses.
-  const servicoReceb = servicos.find((s) => s.id === formReceb.servicoId) || null;
+  const servicoReceb = servs.find((s) => s.id === formReceb.servicoId) || null;
   const recebimentoValido =
     formReceb.profissionalId !== "" && formReceb.servicoId !== "" && formReceb.metodo !== "";
 
@@ -144,23 +185,18 @@ export default function Pagamentos() {
     setFormReceb(FORM_RECEBIMENTO_VAZIO);
   };
 
-  const registrarRecebimento = () => {
-    const servico = servicos.find((s) => s.id === formReceb.servicoId);
-    const prof = profissionais.find((p) => p.id === formReceb.profissionalId);
+  const registrarRecebimento = async () => {
+    const servico = servs.find((s) => s.id === formReceb.servicoId);
+    const prof = profs.find((p) => p.id === formReceb.profissionalId);
     if (!servico || !prof || formReceb.metodo === "") return;
-    const novo: Pagamento = {
-      id: `pg-manual-${Date.now()}`,
+    const criado = await criarPagamento({
       profissionalId: prof.id,
-      profissional: prof.apelido,
-      agendamentoId: null,
-      servico: servico.nome,
-      valor: servico.preco,
-      comissaoPercent: prof.comissaoPercent,
+      valorCentavos: servico.preco,
       metodo: formReceb.metodo,
-      status: "pago",
-      pagoEm: new Date().toISOString(),
-    };
-    setPags((atual) => [novo, ...atual]);
+      servicoNome: servico.nome,
+      servicoId: servico.id,
+    });
+    setPags((atual) => [mapPagamento(criado, profs), ...atual]);
     fecharRecebimento();
   };
 
@@ -286,7 +322,7 @@ export default function Pagamentos() {
               QR fixo de balcão de cada profissional: conta do salão com o marcador dele embutido, já pronto para o split.
             </p>
             <div className="pn-list">
-              {profissionais.map((p) => (
+              {profs.map((p) => (
                 <Row
                   key={p.id}
                   leading={<Avatar name={p.nome} size="sm" />}
@@ -474,14 +510,14 @@ export default function Pagamentos() {
           <Select
             label="Profissional"
             placeholder="Quem atendeu"
-            options={profissionais.map((p) => ({ value: p.id, label: p.nome }))}
+            options={profs.map((p) => ({ value: p.id, label: p.nome }))}
             value={formReceb.profissionalId}
             onChange={(e) => setFormReceb({ ...formReceb, profissionalId: e.target.value })}
           />
           <Select
             label="Serviço"
             placeholder="Selecione o serviço"
-            options={servicos.map((s) => ({ value: s.id, label: s.nome }))}
+            options={servs.map((s) => ({ value: s.id, label: s.nome }))}
             value={formReceb.servicoId}
             onChange={(e) => setFormReceb({ ...formReceb, servicoId: e.target.value })}
           />

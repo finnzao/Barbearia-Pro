@@ -3,26 +3,26 @@ const argon2 = require("argon2");
 
 const prisma = new PrismaClient();
 
-const BARBEARIA_ID = "00000000-0000-0000-0000-000000000001";
-const CATEGORIA_ID = "00000000-0000-0000-0000-000000000041";
-const ADMIN_ID = "00000000-0000-0000-0000-000000000021";
-const PROF_USER_ID = "00000000-0000-0000-0000-000000000022";
+const BARBEARIA_ID = "0a1b2c3d-0000-4000-8000-000000000001";
+const CATEGORIA_ID = "0a1b2c3d-0000-4000-8000-000000000041";
+const ADMIN_ID = "0a1b2c3d-0000-4000-8000-000000000021";
+const PROF_USER_ID = "0a1b2c3d-0000-4000-8000-000000000022";
 
 const PROFISSIONAIS = [
-  { id: "00000000-0000-0000-0000-000000000011", nome: "Carlos Silva", apelido: "Carlos", cargo: "Barbeiro", comissaoPercent: 0.5 },
-  { id: "00000000-0000-0000-0000-000000000012", nome: "Bruno Souza", apelido: "Bruno", cargo: "Barbeiro", comissaoPercent: 0.4 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000011", nome: "Carlos Silva", apelido: "Carlos", cargo: "Barbeiro", comissaoPercent: 0.5 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000012", nome: "Bruno Souza", apelido: "Bruno", cargo: "Barbeiro", comissaoPercent: 0.4 },
 ];
 
 const SERVICOS = [
-  { id: "00000000-0000-0000-0000-000000000031", nome: "Corte de cabelo", duracaoMin: 30, precoCentavos: 4000 },
-  { id: "00000000-0000-0000-0000-000000000032", nome: "Barba", duracaoMin: 20, precoCentavos: 3000 },
-  { id: "00000000-0000-0000-0000-000000000033", nome: "Corte e barba", duracaoMin: 50, precoCentavos: 6500 },
-  { id: "00000000-0000-0000-0000-000000000034", nome: "Sobrancelha", duracaoMin: 10, precoCentavos: 1500 },
-  { id: "00000000-0000-0000-0000-000000000035", nome: "Pezinho", duracaoMin: 10, precoCentavos: 1200 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000031", nome: "Corte de cabelo", duracaoMin: 30, precoCentavos: 4000 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000032", nome: "Barba", duracaoMin: 20, precoCentavos: 3000 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000033", nome: "Corte e barba", duracaoMin: 50, precoCentavos: 6500 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000034", nome: "Sobrancelha", duracaoMin: 10, precoCentavos: 1500 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000035", nome: "Pezinho", duracaoMin: 10, precoCentavos: 1200 },
 ];
 
 const HORARIOS = [1, 2, 3, 4, 5].map((diaSemana, indice) => ({
-  id: `00000000-0000-0000-0000-0000000000${51 + indice}`,
+  id: `0a1b2c3d-0000-4000-8000-0000000000${51 + indice}`,
   diaSemana,
   abre: new Date("1970-01-01T09:00:00.000Z"),
   fecha: new Date("1970-01-01T19:00:00.000Z"),
@@ -86,7 +86,11 @@ async function main() {
 
   await prisma.usuario.upsert({
     where: { id: ADMIN_ID },
-    update: { email: "admin@barbearia-demo.com", papel: "dono" },
+    update: {
+      email: "admin@barbearia-demo.com",
+      senhaHash: senhaHashAdmin,
+      papel: "dono",
+    },
     create: {
       id: ADMIN_ID,
       barbeariaId: BARBEARIA_ID,
@@ -100,6 +104,7 @@ async function main() {
     where: { id: PROF_USER_ID },
     update: {
       email: "carlos@barbearia-demo.com",
+      senhaHash: senhaHashProf,
       papel: "profissional",
       profissionalId: PROFISSIONAIS[0].id,
     },

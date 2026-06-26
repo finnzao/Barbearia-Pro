@@ -1,18 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Card, Input, ListItem, Modal, Money } from "@/ds/components";
 import { Icon } from "@/ds/icons";
-import { servicos as servicosIniciais } from "@/lib/mock-data";
+import { criarServico, getServicos } from "@/lib/api";
 import type { Servico } from "@/lib/types";
 import { toCents } from "@/lib/money";
 
 const FORM_VAZIO = { nome: "", duracaoMin: "", preco: "" };
 
 export default function Servicos() {
-  const [lista, setLista] = useState<Servico[]>(servicosIniciais);
+  const [lista, setLista] = useState<Servico[]>([]);
   const [aberto, setAberto] = useState(false);
+  const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
+
+  useEffect(() => {
+    getServicos()
+      .then(setLista)
+      .catch(() => setLista([]));
+  }, []);
 
   const valido =
     form.nome.trim() !== "" && Number(form.duracaoMin) > 0 && toCents(Number(form.preco)) >= 0;
@@ -22,18 +29,20 @@ export default function Servicos() {
     setForm(FORM_VAZIO);
   };
 
-  const salvar = () => {
+  const salvar = async () => {
     if (!valido) return;
-    setLista((atual) => [
-      ...atual,
-      {
-        id: crypto.randomUUID(),
+    setSalvando(true);
+    try {
+      const novo = await criarServico({
         nome: form.nome.trim(),
         duracaoMin: Number(form.duracaoMin),
-        preco: toCents(Number(form.preco)),
-      },
-    ]);
-    fechar();
+        precoCentavos: toCents(Number(form.preco)),
+      });
+      setLista((atual) => [...atual, novo]);
+      fechar();
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return (
@@ -68,7 +77,7 @@ export default function Servicos() {
         footer={
           <>
             <Button variant="ghost" size="sm" onClick={fechar}>Cancelar</Button>
-            <Button variant="accent" size="sm" disabled={!valido} onClick={salvar}>Adicionar</Button>
+            <Button variant="accent" size="sm" loading={salvando} disabled={!valido || salvando} onClick={salvar}>Adicionar</Button>
           </>
         }
       >

@@ -37,4 +37,16 @@ export class ConfigService {
   get pspWebhookSecret(): string {
     return this.env.PSP_WEBHOOK_SECRET;
   }
+
+  get producao(): boolean {
+    return process.env.NODE_ENV === 'production';
+  }
+
+  get clienteJwtExpiresIn(): string {
+    return process.env.CLIENTE_JWT_EXPIRES_IN ?? '30d';
+  }
+
+  get otpTtlMs(): number {
+    return parseDuration(process.env.OTP_EXPIRA_IN ?? '10m');
+  }
 }

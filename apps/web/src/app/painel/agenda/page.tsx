@@ -1,17 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Avatar, Badge, Button, Card, Input, ListItem, Modal, Money, Select } from "@/ds/components";
 import { Icon } from "@/ds/icons";
+import { GRADE_DIA } from "@/lib/mock-data";
 import {
-  GRADE_DIA,
-  agendamentosDoDia,
-  profissionais,
-  servicos,
-  totalAgendamentosDoDia,
-} from "@/lib/mock-data";
+  criarAgendamento,
+  getAgendamentosPeriodo,
+  getProfissionais,
+  getServicos,
+  type AgendamentoMes,
+} from "@/lib/api";
 import { METODO_PAGAMENTO_LABEL, METODOS_PAGAMENTO } from "@/lib/pagamento";
-import type { Agendamento, MetodoPagamento, StatusAgendamento } from "@/lib/types";
+import type {
+  Agendamento,
+  MetodoPagamento,
+  Profissional,
+  Servico,
+  StatusAgendamento,
+} from "@/lib/types";
 
 const CAPACIDADE = 16;
 const DOW = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -52,7 +59,29 @@ interface DataRef {
 // A data real do usuário é aplicada no cliente, após a montagem.
 const HOJE_PADRAO: DataRef = { ano: 2026, mes: 5, dia: 13 };
 
-const chaveDe = (a: number, m: number, d: number) => `${a}-${m}-${d}`;
+const pad = (n: number) => String(n).padStart(2, "0");
+const horaLocal = (iso: string) => {
+  const d = new Date(iso);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+function paraAgendamento(a: AgendamentoMes): Agendamento {
+  return {
+    id: a.id,
+    hora: horaLocal(a.inicio),
+    cliente: a.clienteNome,
+    servico: a.servico,
+    profissionalId: a.profissionalId,
+    profissional: a.profissional,
+    preco: a.precoCentavos,
+    status: a.status,
+  };
+}
+
+function mesmoDia(iso: string, ano: number, mes: number, dia: number): boolean {
+  const d = new Date(iso);
+  return d.getFullYear() === ano && d.getMonth() === mes && d.getDate() === dia;
+}
 
 export default function Agenda() {
   // Referência estável para o render do servidor (evita divergência de hidratação);
@@ -61,7 +90,9 @@ export default function Agenda() {
   const [mes, setMes] = useState(HOJE_PADRAO.mes);
   const [dia, setDia] = useState(HOJE_PADRAO.dia);
   const [hoje, setHoje] = useState<DataRef | null>(null);
-  const [extras, setExtras] = useState<Record<string, Agendamento[]>>({});
+  const [agsMes, setAgsMes] = useState<AgendamentoMes[]>([]);
+  const [profs, setProfs] = useState<Profissional[]>([]);
+  const [servs, setServs] = useState<Servico[]>([]);
   const [aberto, setAberto] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
 
@@ -74,11 +105,28 @@ export default function Agenda() {
     setDia(real.dia);
   }, []);
 
-  const chaveSel = chaveDe(ano, mes, dia);
+  useEffect(() => {
+    getProfissionais().then(setProfs).catch(() => {});
+    getServicos().then(setServs).catch(() => {});
+  }, []);
+
+  const recarregarMes = useCallback(async () => {
+    const totalDias = new Date(ano, mes + 1, 0).getDate();
+    const de = `${ano}-${pad(mes + 1)}-01`;
+    const ate = `${ano}-${pad(mes + 1)}-${pad(totalDias)}`;
+    try {
+      setAgsMes(await getAgendamentosPeriodo(de, ate));
+    } catch {
+      setAgsMes([]);
+    }
+  }, [ano, mes]);
+
+  useEffect(() => {
+    recarregarMes();
+  }, [recarregarMes]);
+
   const diaFechado = new Date(ano, mes, dia).getDay() === 0;
 
-  // Estrutura do mês memoizada: só recalcula quando muda mês, dia, hoje ou os
-  // agendamentos adicionados — e não a cada tecla digitada no modal.
   const celulas = useMemo(() => {
     const primeiroDow = new Date(ano, mes, 1).getDay();
     const totalDias = new Date(ano, mes + 1, 0).getDate();
@@ -87,19 +135,19 @@ export default function Agenda() {
       const d = i + 1;
       const data = new Date(ano, mes, d);
       const fechado = data.getDay() === 0;
-      const count = totalAgendamentosDoDia(ano, mes, d) + (extras[chaveDe(ano, mes, d)]?.length ?? 0);
+      const count = agsMes.filter((a) => mesmoDia(a.inicio, ano, mes, d)).length;
       const ehHoje = !!hoje && d === hoje.dia && mes === hoje.mes && ano === hoje.ano;
       return { d, fechado, count, ehHoje };
     });
     return [...vazias, ...dias] as (null | { d: number; fechado: boolean; count: number; ehHoje: boolean })[];
-  }, [ano, mes, hoje, extras]);
+  }, [ano, mes, hoje, agsMes]);
 
-  // Agendamentos do dia selecionado (gerados + adicionados na sessão), por hora.
   const agendamentosSel = useMemo(() => {
-    const base = agendamentosDoDia(ano, mes, dia);
-    const adicionados = extras[chaveSel] ?? [];
-    return [...base, ...adicionados].sort((a, b) => a.hora.localeCompare(b.hora));
-  }, [ano, mes, dia, extras, chaveSel]);
+    return agsMes
+      .filter((a) => mesmoDia(a.inicio, ano, mes, dia))
+      .map(paraAgendamento)
+      .sort((a, b) => a.hora.localeCompare(b.hora));
+  }, [agsMes, ano, mes, dia]);
 
   const porHora = useMemo(() => {
     const mapa = new Map<string, Agendamento>();
@@ -156,23 +204,28 @@ export default function Agenda() {
     form.profissionalId !== "" &&
     (!exigeForma || form.formaPagamento !== "");
 
-  const salvar = () => {
+  const salvar = async () => {
     if (!valido) return;
-    const servico = servicos.find((s) => s.id === form.servicoId)!;
-    const prof = profissionais.find((p) => p.id === form.profissionalId)!;
-    const novo: Agendamento = {
-      id: crypto.randomUUID(),
-      hora: form.hora,
-      cliente: form.cliente.trim(),
-      servico: servico.nome,
-      profissionalId: prof.id,
-      profissional: prof.apelido,
-      preco: servico.preco,
-      status: form.status,
-      formaPagamento: exigeForma && form.formaPagamento ? form.formaPagamento : undefined,
-    };
-    setExtras((atual) => ({ ...atual, [chaveSel]: [...(atual[chaveSel] ?? []), novo] }));
-    fechar();
+    const servico = servs.find((s) => s.id === form.servicoId);
+    if (!servico) return;
+    const [h, m] = form.hora.split(":").map(Number);
+    const inicio = new Date(ano, mes, dia, h, m);
+    const fim = new Date(inicio.getTime() + servico.duracaoMin * 60_000);
+    try {
+      await criarAgendamento({
+        inicio: inicio.toISOString(),
+        fim: fim.toISOString(),
+        profissionalId: form.profissionalId,
+        servicoId: form.servicoId,
+        clienteNome: form.cliente.trim(),
+        precoCentavos: servico.preco,
+        status: form.status,
+      });
+      await recarregarMes();
+      fechar();
+    } catch {
+      /* conflito de horário mantém o modal aberto */
+    }
   };
 
   // Horários oferecidos no modal: livres + (se editando hora pré-escolhida) ela mesma.
@@ -381,7 +434,7 @@ export default function Agenda() {
           label="Serviço"
           required
           placeholder="Selecione o serviço"
-          options={servicos.map((s) => ({ value: s.id, label: s.nome }))}
+          options={servs.map((s) => ({ value: s.id, label: s.nome }))}
           value={form.servicoId}
           onChange={(e) => setForm({ ...form, servicoId: e.target.value })}
         />
@@ -389,7 +442,7 @@ export default function Agenda() {
           label="Profissional"
           required
           placeholder="Selecione o profissional"
-          options={profissionais.map((p) => ({ value: p.id, label: p.nome }))}
+          options={profs.map((p) => ({ value: p.id, label: p.nome }))}
           value={form.profissionalId}
           onChange={(e) => setForm({ ...form, profissionalId: e.target.value })}
         />

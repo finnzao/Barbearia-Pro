@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Button, Card, Switch } from "@/ds/components";
 import { Icon } from "@/ds/icons";
 import { HorarioFuncionamento } from "@/components/horario-funcionamento";
-import { CONFIG_PADRAO, lerConfigSalva, salvarConfig, type ConfigAgendamento } from "@/lib/settings";
+import { getConfigAgendamento, salvarConfigAgendamento } from "@/lib/api";
+import { CONFIG_PADRAO, type ConfigAgendamento } from "@/lib/settings";
 
 function Opcao({
   titulo,
@@ -33,9 +34,10 @@ export default function Configuracoes() {
   const [cfg, setCfg] = useState<ConfigAgendamento>(CONFIG_PADRAO);
   const [salvo, setSalvo] = useState(false);
 
-  // localStorage só existe no cliente, então hidrata depois da montagem.
   useEffect(() => {
-    setCfg(lerConfigSalva());
+    getConfigAgendamento()
+      .then(setCfg)
+      .catch(() => setCfg(CONFIG_PADRAO));
   }, []);
 
   const set = (chave: keyof ConfigAgendamento) => (valor: boolean) => {
@@ -43,8 +45,8 @@ export default function Configuracoes() {
     setSalvo(false);
   };
 
-  const salvar = () => {
-    salvarConfig(cfg);
+  const salvar = async () => {
+    await salvarConfigAgendamento(cfg);
     setSalvo(true);
   };
 

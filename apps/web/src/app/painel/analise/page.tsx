@@ -1,17 +1,42 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { BarChart } from "@/components/bar-chart";
 import { Card, MetricCard, Money } from "@/ds/components";
 import { Icon } from "@/ds/icons";
-import { analiseSemana, cortesPorHora } from "@/lib/mock-data";
+import { getPicos } from "@/lib/api";
+import type { AnaliseSemana } from "@/lib/mock-data";
+import type { CortesDia, FaixaHora } from "@/lib/types";
 
 const NOME_COMPLETO: Record<string, string> = {
   Seg: "Segunda", Ter: "Terça", Qua: "Quarta", Qui: "Quinta",
   Sex: "Sexta", Sáb: "Sábado", Dom: "Domingo",
 };
 
+const DIA_VAZIO: CortesDia = { dia: "", cortes: 0, faturamento: 0 };
+const SEMANA_VAZIA: AnaliseSemana = {
+  dias: [],
+  maisMovimentado: DIA_VAZIO,
+  menosMovimentado: DIA_VAZIO,
+  totalCortes: 0,
+};
+
 export default function Analise() {
-  const a = analiseSemana();
-  const horas = cortesPorHora();
-  const horaPico = horas.reduce((m, h) => (h.cortes > m.cortes ? h : m), horas[0]);
+  const [a, setA] = useState<AnaliseSemana>(SEMANA_VAZIA);
+  const [horas, setHoras] = useState<FaixaHora[]>([]);
+
+  useEffect(() => {
+    getPicos()
+      .then((p) => {
+        setA(p.analise);
+        setHoras(p.horas);
+      })
+      .catch(() => {});
+  }, []);
+
+  const horaPico = horas.length
+    ? horas.reduce((m, h) => (h.cortes > m.cortes ? h : m), horas[0])
+    : { hora: "—", cortes: 0 };
   const faturamentoSemana = a.dias.reduce((s, d) => s + d.faturamento, 0);
 
   return (

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Glyph } from "@/app/painel/glyphs";
 import { Avatar, Badge, Btn, Card, Field, Modal, Row, Select, pct } from "@/app/painel/ui";
-import { profissionais as profsIniciais } from "@/lib/mock-data";
+import { criarProfissional, getProfissionais } from "@/lib/api";
 import type { Profissional, TipoChavePix } from "@/lib/types";
 
 const FORM_VAZIO = { nome: "", apelido: "", comissao: "", chavePix: "", pixTipoChave: "email" as TipoChavePix };
@@ -17,9 +17,16 @@ const TIPOS_CHAVE: { value: TipoChavePix; label: string }[] = [
 ];
 
 export default function Profissionais() {
-  const [lista, setLista] = useState<Profissional[]>(profsIniciais);
+  const [lista, setLista] = useState<Profissional[]>([]);
   const [aberto, setAberto] = useState(false);
+  const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
+
+  useEffect(() => {
+    getProfissionais()
+      .then(setLista)
+      .catch(() => setLista([]));
+  }, []);
 
   const comissaoNum = Number(form.comissao);
   const valido = form.nome.trim() !== "" && comissaoNum >= 0 && comissaoNum <= 100;
@@ -29,22 +36,24 @@ export default function Profissionais() {
     setForm(FORM_VAZIO);
   };
 
-  const salvar = () => {
+  const salvar = async () => {
     if (!valido) return;
     const nome = form.nome.trim();
     const chavePix = form.chavePix.trim();
-    setLista((atual) => [
-      ...atual,
-      {
-        id: crypto.randomUUID(),
+    setSalvando(true);
+    try {
+      const novo = await criarProfissional({
         nome,
         apelido: form.apelido.trim() || nome.split(/\s+/)[0],
         comissaoPercent: comissaoNum / 100,
         chavePix: chavePix || undefined,
         pixTipoChave: chavePix ? form.pixTipoChave : undefined,
-      },
-    ]);
-    fechar();
+      });
+      setLista((atual) => [...atual, novo]);
+      fechar();
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return (
@@ -82,8 +91,8 @@ export default function Profissionais() {
             <Btn variant="ghost" size="sm" onClick={fechar}>
               Cancelar
             </Btn>
-            <Btn variant="accent" size="sm" disabled={!valido} onClick={salvar}>
-              Adicionar
+            <Btn variant="accent" size="sm" disabled={!valido || salvando} onClick={salvar}>
+              {salvando ? "Salvando…" : "Adicionar"}
             </Btn>
           </>
         }

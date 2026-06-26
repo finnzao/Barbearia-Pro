@@ -16,4 +16,12 @@ export class TenantContext {
   getTenantId(): string | undefined {
     return this.storage.getStore()?.tenantId;
   }
+
+  requireTenantId(): string {
+    const tenantId = this.getTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant não definido no contexto.');
+    }
+    return tenantId;
+  }
 }
