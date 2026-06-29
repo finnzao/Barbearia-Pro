@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContext } from '../tenant/tenant.context';
 import { AtualizarAgendamentoDto } from './dto/atualizar-agendamento.dto';
@@ -23,6 +24,7 @@ export class AgendamentosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenant: TenantContext,
+    private readonly notificacoes: NotificacoesService,
   ) {}
 
   private readonly include = {
@@ -71,9 +73,11 @@ export class AgendamentosService {
   async criar(dto: CriarAgendamentoDto) {
     this.validarPeriodo(dto.inicio, dto.fim);
     try {
-      return await this.prisma.db.agendamento.create({
+      const criado = await this.prisma.db.agendamento.create({
         data: { ...dto, barbeariaId: this.tenant.requireTenantId() },
       });
+      await this.notificacoes.notificarAgendamento(criado.id, 'confirmacao');
+      return criado;
     } catch (erro) {
       throw this.mapearErro(erro);
     }
@@ -85,12 +89,30 @@ export class AgendamentosService {
     const fim = dto.fim ?? atual.fim.toISOString();
     this.validarPeriodo(inicio, fim);
     try {
-      return await this.prisma.db.agendamento.update({
+      const atualizado = await this.prisma.db.agendamento.update({
         where: { id },
         data: dto,
       });
+      await this.avisarMudanca(id, atual, dto);
+      return atualizado;
     } catch (erro) {
       throw this.mapearErro(erro);
+    }
+  }
+
+  // Cancelou? avisa cancelamento. Mudou o início? avisa remarcação.
+  private async avisarMudanca(
+    id: string,
+    atual: { status: string; inicio: Date },
+    dto: AtualizarAgendamentoDto,
+  ) {
+    if (dto.status === 'cancelado' && atual.status !== 'cancelado') {
+      await this.notificacoes.notificarAgendamento(id, 'cancelamento');
+    } else if (
+      dto.inicio &&
+      new Date(dto.inicio).getTime() !== atual.inicio.getTime()
+    ) {
+      await this.notificacoes.notificarAgendamento(id, 'remarcacao');
     }
   }
 

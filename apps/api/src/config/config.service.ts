@@ -49,4 +49,12 @@ export class ConfigService {
   get otpTtlMs(): number {
     return parseDuration(process.env.OTP_EXPIRA_IN ?? '10m');
   }
+
+  get whatsappApiUrl(): string | undefined {
+    return this.env.WHATSAPP_API_URL;
+  }
+
+  get whatsappApiToken(): string | undefined {
+    return this.env.WHATSAPP_API_TOKEN;
+  }
 }

@@ -118,6 +118,7 @@ model Barbearia {
   pagamentos        Pagamento[]
   repasses          Repasse[]
   splits            SplitPagamento[]
+  notificacoes      NotificacaoWhatsapp[]
 
   @@map("barbearia")
 }
@@ -290,6 +291,7 @@ model Cliente {
   nome        String
   whatsapp    String
   senhaHash   String?  @map("senha_hash")
+  optOutNotificacoes Boolean @default(false) @map("opt_out_notificacoes")
   criadoEm    DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
 
   barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
@@ -336,10 +338,50 @@ model Agendamento {
   servico      Servico?      @relation(fields: [servicoId], references: [id], onDelete: SetNull)
   cliente      Cliente?      @relation(fields: [clienteId], references: [id], onDelete: SetNull)
   pagamentos   Pagamento[]
+  notificacoes NotificacaoWhatsapp[]
 
   @@index([barbeariaId, inicio])
   @@index([profissionalId, inicio])
   @@map("agendamento")
+}
+
+enum TipoNotificacao {
+  confirmacao
+  lembrete
+  cancelamento
+  remarcacao
+
+  @@map("tipo_notificacao")
+}
+
+enum StatusNotificacao {
+  pendente
+  enviado
+  falha
+
+  @@map("status_notificacao")
+}
+
+// Outbox do WhatsApp do sistema: confirmação, lembrete, cancelamento e remarcação.
+// Um worker drena (fila com retry) e respeita janela de silêncio para lembretes.
+model NotificacaoWhatsapp {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId   String            @map("barbearia_id") @db.Uuid
+  agendamentoId String?           @map("agendamento_id") @db.Uuid
+  whatsapp      String
+  tipo          TipoNotificacao
+  texto         String
+  status        StatusNotificacao @default(pendente)
+  tentativas    Int               @default(0)
+  enviadoEm     DateTime?         @map("enviado_em") @db.Timestamptz(6)
+  criadoEm      DateTime          @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  barbearia   Barbearia    @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  agendamento Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+
+  @@index([status, criadoEm])
+  @@index([agendamentoId, tipo])
+  @@map("notificacao_whatsapp")
 }
 
 model Pagamento {

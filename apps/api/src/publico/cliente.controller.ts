@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -13,7 +14,7 @@ import { ClienteAtual } from './cliente-atual.decorator';
 import { ClienteAuthService } from './cliente-auth.service';
 import { ClienteJwtGuard } from './cliente-jwt.guard';
 import { ClienteAutenticado } from './cliente-request';
-import { DefinirSenhaDto } from './dto/cliente-auth.dto';
+import { DefinirSenhaDto, NotificacoesDto } from './dto/cliente-auth.dto';
 import { PublicoService } from './publico.service';
 
 @Public()
@@ -51,5 +52,13 @@ export class ClienteController {
     @Body() dto: DefinirSenhaDto,
   ) {
     return this.clienteAuth.definirSenha(cliente.id, dto.senha);
+  }
+
+  @Patch('notificacoes')
+  notificacoes(
+    @ClienteAtual() cliente: ClienteAutenticado,
+    @Body() dto: NotificacoesDto,
+  ) {
+    return this.publico.definirNotificacoes(cliente.id, dto.optOut);
   }
 }

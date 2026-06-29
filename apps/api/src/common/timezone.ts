@@ -40,3 +40,27 @@ export function horaLocalParaUtc(
 export function horaDeTime(time: Date): string {
   return time.toISOString().slice(11, 16);
 }
+
+// "dd/MM HH:mm" no fuso da barbearia, para textos de notificação.
+export function formatarLocal(instante: Date, fuso: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: fuso,
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+    .format(instante)
+    .replace(',', '');
+}
+
+// Hora local (0-23) no fuso informado — usada na janela de silêncio.
+export function horaLocal(instante: Date, fuso: string): number {
+  return Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: fuso,
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).format(instante),
+  );
+}

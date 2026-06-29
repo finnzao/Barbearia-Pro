@@ -4,6 +4,7 @@ import {
   criarBarbearia,
   criarProfissional,
 } from '../../test/support/factories';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContext } from '../tenant/tenant.context';
 import { AgendamentosService } from './agendamentos.service';
@@ -11,7 +12,10 @@ import { AgendamentosService } from './agendamentos.service';
 describe('AgendamentosService (integração)', () => {
   const ctx = new TenantContext();
   const prisma = new PrismaService(ctx);
-  const service = new AgendamentosService(prisma, ctx);
+  const notificacoes = {
+    notificarAgendamento: async () => undefined,
+  } as unknown as NotificacoesService;
+  const service = new AgendamentosService(prisma, ctx, notificacoes);
 
   beforeEach(async () => {
     await resetDatabase();

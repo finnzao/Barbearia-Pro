@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   NOTIFICADOR_WHATSAPP,
   NotificadorWhatsapp,
-} from './notificador-whatsapp';
+} from '../notificacoes/notificador-whatsapp';
 
 const MAX_TENTATIVAS = 5;
 

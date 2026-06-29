@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { StatusAgendamento } from '@prisma/client';
 import { horaDeTime, horaLocalParaUtc } from '../common/timezone';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgendarPublicoDto } from './dto/agendar-publico.dto';
 import { HorariosQueryDto } from './dto/horarios-query.dto';
@@ -33,7 +34,10 @@ function ehConflitoHorario(erro: unknown): boolean {
 
 @Injectable()
 export class PublicoService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificacoes: NotificacoesService,
+  ) {}
 
   async resolverBarbearia(slug: string) {
     const barbearia = await this.prisma.barbearia.findUnique({
@@ -225,6 +229,10 @@ export class PublicoService {
           origem: 'cliente',
         },
       });
+      await this.notificacoes.notificarAgendamento(
+        agendamento.id,
+        'confirmacao',
+      );
       return {
         id: agendamento.id,
         inicio: agendamento.inicio,
@@ -274,9 +282,19 @@ export class PublicoService {
     if (!agendamento) {
       throw new NotFoundException('Agendamento não encontrado.');
     }
-    return this.prisma.agendamento.update({
+    const atualizado = await this.prisma.agendamento.update({
       where: { id },
       data: { status: StatusAgendamento.cancelado },
+    });
+    await this.notificacoes.notificarAgendamento(id, 'cancelamento');
+    return atualizado;
+  }
+
+  definirNotificacoes(clienteId: string, optOut: boolean) {
+    return this.prisma.cliente.update({
+      where: { id: clienteId },
+      data: { optOutNotificacoes: optOut },
+      select: { optOutNotificacoes: true },
     });
   }
 }

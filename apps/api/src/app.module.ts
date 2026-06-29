@@ -10,6 +10,7 @@ import { LoggingMiddleware } from './common/logging.middleware';
 import { ConfigModule } from './config/config.module';
 import { ConfigBarbeariaModule } from './config-barbearia/config-barbearia.module';
 import { FuncionarioModule } from './funcionario/funcionario.module';
+import { NotificacoesModule } from './notificacoes/notificacoes.module';
 import { PagamentosModule } from './pagamentos/pagamentos.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PublicoModule } from './publico/publico.module';
@@ -36,6 +37,7 @@ import { TenantModule } from './tenant/tenant.module';
     RepassesModule,
     ConfigBarbeariaModule,
     RelatoriosModule,
+    NotificacoesModule,
     PublicoModule,
   ],
   controllers: [AppController],

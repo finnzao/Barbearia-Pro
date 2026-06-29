@@ -1,4 +1,10 @@
-import { IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 const WHATSAPP = /^\+?[0-9]{8,15}$/;
 
@@ -35,4 +41,10 @@ export class DefinirSenhaDto {
   @MinLength(6)
   @MaxLength(128)
   senha!: string;
+}
+
+export class NotificacoesDto {
+  // true = não quer receber lembretes (opt-out, LGPD)
+  @IsBoolean()
+  optOut!: boolean;
 }

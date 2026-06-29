@@ -30,6 +30,14 @@ export class EnvVars {
   @IsOptional()
   @IsString()
   REFRESH_EXPIRES_IN?: string;
+
+  @IsOptional()
+  @IsString()
+  WHATSAPP_API_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  WHATSAPP_API_TOKEN?: string;
 }
 
 export function validateEnv(source: Record<string, unknown>): EnvVars {

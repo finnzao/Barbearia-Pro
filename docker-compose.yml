@@ -1,0 +1,25 @@
+services:
+  # Container isolado do WhatsApp (Baileys). Sessão única vinculada por QR.
+  whatsapp:
+    build: ./apps/whatsapp
+    restart: unless-stopped
+    env_file: ./apps/whatsapp/.env
+    environment:
+      # API roda no host enquanto não há Dockerfile dela; trocar por http://api:3333 quando containerizar.
+      WEBHOOK_URL: http://host.docker.internal:3333/api/publico/whatsapp/status
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Porta privada: só acessível do próprio host (para escanear o QR em /qr), não exposta na internet.
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - whatsapp_auth:/data/auth
+    networks:
+      - naregua
+
+volumes:
+  # Credenciais da sessão: tratar como segredo, manter no backup.
+  whatsapp_auth:
+
+networks:
+  naregua:
