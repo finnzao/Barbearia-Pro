@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Avatar, Badge, Button, Input, Money } from "@/ds/components";
 import { Icon } from "@/ds/icons";
+import { useLocalStorage } from "@/lib/client-hooks";
 import { datas, horarios, profissionais, servicos } from "@/lib/mock-data";
-import { CONFIG_PADRAO, lerConfigSalva, resolverConfig, type ConfigAgendamento } from "@/lib/settings";
+import { CHAVE_CONFIG, CONFIG_PADRAO, lerConfigSalva, resolverConfig, type ConfigAgendamento } from "@/lib/settings";
 
 // "Qualquer" representa o primeiro disponível; os demais são a equipe real.
 const PROFS = ["Qualquer", ...profissionais.map((p) => p.apelido)];
@@ -49,18 +50,18 @@ function FluxoCliente() {
   // Querystring = pré-visualização explícita do dono; sem ela, vale a config salva.
   const temOverride = params.has("profissional") || params.has("servico");
 
-  const [cfg, setCfg] = useState<ConfigAgendamento>(() =>
-    temOverride
-      ? resolverConfig({
-          profissional: params.get("profissional") ?? undefined,
-          servico: params.get("servico") ?? undefined,
-        })
-      : CONFIG_PADRAO,
+  // Sem override na URL, a config vem do localStorage (hidratação-safe).
+  const [cfgSalva] = useLocalStorage<ConfigAgendamento>(
+    CHAVE_CONFIG,
+    CONFIG_PADRAO,
+    lerConfigSalva,
   );
-
-  useEffect(() => {
-    if (!temOverride) setCfg(lerConfigSalva());
-  }, [temOverride]);
+  const cfg = temOverride
+    ? resolverConfig({
+        profissional: params.get("profissional") ?? undefined,
+        servico: params.get("servico") ?? undefined,
+      })
+    : cfgSalva;
 
   // As etapas existentes dependem da configuração da barbearia.
   const etapas = useMemo<Etapa[]>(() => {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Avatar, Badge, Button, Card, Input, ListItem, Modal, Money, Select } from "@/ds/components";
 import { Icon } from "@/ds/icons";
+import { useHoje } from "@/lib/client-hooks";
 import { GRADE_DIA } from "@/lib/mock-data";
 import {
   criarAgendamento,
@@ -84,12 +85,15 @@ function mesmoDia(iso: string, ano: number, mes: number, dia: number): boolean {
 }
 
 export default function Agenda() {
-  // Referência estável para o render do servidor (evita divergência de hidratação);
-  // a data real entra após a montagem, abaixo.
-  const [ano, setAno] = useState(HOJE_PADRAO.ano);
-  const [mes, setMes] = useState(HOJE_PADRAO.mes);
-  const [dia, setDia] = useState(HOJE_PADRAO.dia);
-  const [hoje, setHoje] = useState<DataRef | null>(null);
+  // Data real no cliente (HOJE_PADRAO no SSR, hidratação-safe). A navegação do
+  // usuário sobrepõe via os "override" abaixo.
+  const hoje = useHoje(HOJE_PADRAO);
+  const [anoOv, setAno] = useState<number | null>(null);
+  const [mesOv, setMes] = useState<number | null>(null);
+  const [diaOv, setDia] = useState<number | null>(null);
+  const ano = anoOv ?? hoje.ano;
+  const mes = mesOv ?? hoje.mes;
+  const dia = diaOv ?? hoje.dia;
   const [agsMes, setAgsMes] = useState<AgendamentoMes[]>([]);
   const [profs, setProfs] = useState<Profissional[]>([]);
   const [servs, setServs] = useState<Servico[]>([]);
@@ -97,33 +101,30 @@ export default function Agenda() {
   const [form, setForm] = useState(FORM_VAZIO);
 
   useEffect(() => {
-    const d = new Date();
-    const real: DataRef = { ano: d.getFullYear(), mes: d.getMonth(), dia: d.getDate() };
-    setHoje(real);
-    setAno(real.ano);
-    setMes(real.mes);
-    setDia(real.dia);
-  }, []);
-
-  useEffect(() => {
     getProfissionais().then(setProfs).catch(() => {});
     getServicos().then(setServs).catch(() => {});
   }, []);
 
-  const recarregarMes = useCallback(async () => {
+  const buscarMes = useCallback(async (): Promise<AgendamentoMes[]> => {
     const totalDias = new Date(ano, mes + 1, 0).getDate();
     const de = `${ano}-${pad(mes + 1)}-01`;
     const ate = `${ano}-${pad(mes + 1)}-${pad(totalDias)}`;
     try {
-      setAgsMes(await getAgendamentosPeriodo(de, ate));
+      return await getAgendamentosPeriodo(de, ate);
     } catch {
-      setAgsMes([]);
+      return [];
     }
   }, [ano, mes]);
 
   useEffect(() => {
-    recarregarMes();
-  }, [recarregarMes]);
+    let ativo = true;
+    buscarMes().then((a) => {
+      if (ativo) setAgsMes(a);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [buscarMes]);
 
   const diaFechado = new Date(ano, mes, dia).getDay() === 0;
 
@@ -136,7 +137,7 @@ export default function Agenda() {
       const data = new Date(ano, mes, d);
       const fechado = data.getDay() === 0;
       const count = agsMes.filter((a) => mesmoDia(a.inicio, ano, mes, d)).length;
-      const ehHoje = !!hoje && d === hoje.dia && mes === hoje.mes && ano === hoje.ano;
+      const ehHoje = d === hoje.dia && mes === hoje.mes && ano === hoje.ano;
       return { d, fechado, count, ehHoje };
     });
     return [...vazias, ...dias] as (null | { d: number; fechado: boolean; count: number; ehHoje: boolean })[];
@@ -172,7 +173,7 @@ export default function Agenda() {
   );
 
   const irMes = (delta: number) => {
-    const base = hoje ?? HOJE_PADRAO;
+    const base = hoje;
     const ref = new Date(ano, mes + delta, 1);
     const a = ref.getFullYear();
     const m = ref.getMonth();
@@ -221,7 +222,7 @@ export default function Agenda() {
         precoCentavos: servico.preco,
         status: form.status,
       });
-      await recarregarMes();
+      setAgsMes(await buscarMes());
       fechar();
     } catch {
       /* conflito de horário mantém o modal aberto */

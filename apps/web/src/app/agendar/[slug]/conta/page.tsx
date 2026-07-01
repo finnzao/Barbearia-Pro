@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Button, Input } from "@/ds/components";
+import { useLocalStorage, useMontado } from "@/lib/client-hooks";
 import {
   ApiError,
   cancelarAgendamentoCliente,
+  CHAVE_SESSAO,
   getMeusAgendamentos,
   lerSessaoCliente,
   loginOtp,
@@ -30,15 +32,15 @@ function formatarQuando(iso: string): string {
 export default function ContaCliente() {
   const { slug } = useParams<{ slug: string }>();
 
-  const [sessao, setSessao] = useState<ClienteSessao | null>(null);
-  const [pronto, setPronto] = useState(false);
+  // Sessão do cliente espelhada no localStorage (hidratação-safe).
+  const [sessao, setSessao] = useLocalStorage<ClienteSessao | null>(
+    CHAVE_SESSAO,
+    null,
+    lerSessaoCliente,
+  );
+  const montado = useMontado();
 
-  useEffect(() => {
-    setSessao(lerSessaoCliente());
-    setPronto(true);
-  }, []);
-
-  if (!pronto) {
+  if (!montado) {
     return <div className="pb-tela" />;
   }
 
@@ -208,7 +210,6 @@ function Area({
   );
 
   const carregar = useCallback(() => {
-    setEstado("carregando");
     getMeusAgendamentos()
       .then((a) => {
         setAgendamentos(a);

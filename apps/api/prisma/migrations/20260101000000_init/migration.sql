@@ -17,6 +17,8 @@ create type modo_repasse as enum ('imediato', 'periodico', 'manual');
 create type frequencia_repasse as enum ('semanal', 'quinzenal', 'mensal');
 create type papel_usuario as enum ('dono', 'profissional', 'recepcao');
 create type tipo_chave_pix as enum ('cpf', 'cnpj', 'email', 'telefone', 'aleatoria');
+create type tipo_notificacao as enum ('confirmacao', 'lembrete', 'cancelamento', 'remarcacao');
+create type status_notificacao as enum ('pendente', 'enviado', 'falha');
 
 create table barbearia (
   id                     uuid primary key default gen_random_uuid(),
@@ -109,6 +111,16 @@ create table usuario (
   unique (barbearia_id, email)
 );
 
+create table refresh_token (
+  id          uuid primary key default gen_random_uuid(),
+  usuario_id  uuid not null references usuario(id) on delete cascade,
+  token_hash  text not null unique,
+  expira_em   timestamptz not null,
+  revogado_em timestamptz,
+  criado_em   timestamptz not null default now()
+);
+create index on refresh_token (usuario_id);
+
 create table categoria_servico (
   id           uuid primary key default gen_random_uuid(),
   barbearia_id uuid not null references barbearia(id) on delete cascade,
@@ -136,13 +148,27 @@ create table profissional_servico (
 );
 
 create table cliente (
-  id           uuid primary key default gen_random_uuid(),
-  barbearia_id uuid not null references barbearia(id) on delete cascade,
-  nome         text not null,
-  whatsapp     text not null,
-  criado_em    timestamptz not null default now(),
+  id                   uuid primary key default gen_random_uuid(),
+  barbearia_id         uuid not null references barbearia(id) on delete cascade,
+  nome                 text not null,
+  whatsapp             text not null,
+  senha_hash           text,
+  opt_out_notificacoes boolean not null default false,
+  criado_em            timestamptz not null default now(),
   unique (barbearia_id, whatsapp)
 );
+
+create table verificacao_cliente (
+  id           uuid primary key default gen_random_uuid(),
+  barbearia_id uuid not null references barbearia(id) on delete cascade,
+  whatsapp     text not null,
+  codigo_hash  text not null,
+  tentativas   int not null default 0,
+  expira_em    timestamptz not null,
+  consumido_em timestamptz,
+  criado_em    timestamptz not null default now()
+);
+create index on verificacao_cliente (barbearia_id, whatsapp);
 
 create table agendamento (
   id              uuid primary key default gen_random_uuid(),
@@ -168,6 +194,21 @@ alter table agendamento
   add constraint agendamento_sem_overlap
   exclude using gist (profissional_id with =, tstzrange(inicio, fim) with &&)
   where (status <> 'cancelado');
+
+create table notificacao_whatsapp (
+  id             uuid primary key default gen_random_uuid(),
+  barbearia_id   uuid not null references barbearia(id) on delete cascade,
+  agendamento_id uuid references agendamento(id) on delete set null,
+  whatsapp       text not null,
+  tipo           tipo_notificacao not null,
+  texto          text not null,
+  status         status_notificacao not null default 'pendente',
+  tentativas     int not null default 0,
+  enviado_em     timestamptz,
+  criado_em      timestamptz not null default now()
+);
+create index on notificacao_whatsapp (status, criado_em);
+create index on notificacao_whatsapp (agendamento_id, tipo);
 
 create table repasse (
   id              uuid primary key default gen_random_uuid(),

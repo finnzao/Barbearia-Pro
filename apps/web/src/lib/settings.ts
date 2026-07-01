@@ -24,7 +24,7 @@ export function resolverConfig(searchParams?: Record<string, string | undefined>
 
 // Persistência provisória no navegador enquanto não há backend. Quando a API
 // existir, estas duas funções viram GET/PUT em `config_barbearia`.
-const CHAVE_CONFIG = "naregua:config-agendamento";
+export const CHAVE_CONFIG = "naregua:config-agendamento";
 
 export function lerConfigSalva(): ConfigAgendamento {
   if (typeof window === "undefined") return CONFIG_PADRAO;

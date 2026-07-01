@@ -1,15 +1,11 @@
 {
+  "extends": "@naregua/config/tsconfig.base.json",
   "compilerOptions": {
     "module": "commonjs",
-    "target": "ES2022",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "declaration": false,
-    "outDir": "./dist",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true
+    "outDir": "./dist"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

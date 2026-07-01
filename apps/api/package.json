@@ -23,6 +23,7 @@
     "test:e2e": "jest --config test/jest-e2e.json"
   },
   "dependencies": {
+    "@naregua/types": "workspace:*",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/jwt": "^11",
@@ -37,6 +38,7 @@
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
+    "@naregua/config": "workspace:*",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/testing": "^11",
     "@types/jest": "^29",

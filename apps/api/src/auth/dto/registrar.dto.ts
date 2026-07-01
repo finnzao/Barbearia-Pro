@@ -5,6 +5,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { SENHA_FORTE, SENHA_FORTE_MSG } from '../../common/senha';
 
 export class RegistrarDto {
   @IsString()
@@ -24,7 +25,7 @@ export class RegistrarDto {
   email!: string;
 
   @IsString()
-  @MinLength(8)
   @MaxLength(128)
+  @Matches(SENHA_FORTE, { message: SENHA_FORTE_MSG })
   senha!: string;
 }

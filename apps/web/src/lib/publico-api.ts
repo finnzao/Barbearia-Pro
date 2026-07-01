@@ -1,7 +1,7 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333/api";
 
-const CHAVE_SESSAO = "naregua:cliente";
+export const CHAVE_SESSAO = "naregua:cliente";
 
 export interface BarbeariaPublica {
   id: string;

@@ -1,15 +1,20 @@
-export type StatusAgendamento = "confirmado" | "concluido" | "cancelado" | "pendente";
+// Enums do domínio vêm do contrato compartilhado (@naregua/types), reexportados
+// para os consumidores atuais de "@/lib/types".
+import type {
+  MetodoPagamento,
+  StatusAgendamento,
+  StatusPagamento,
+  TipoChavePix,
+} from "@naregua/types";
+
+export type {
+  MetodoPagamento,
+  StatusAgendamento,
+  StatusPagamento,
+  TipoChavePix,
+};
+
 export type Periodo = "dia" | "semana" | "mes";
-
-export type MetodoPagamento =
-  | "pix_dinamico"
-  | "pix_estatico"
-  | "dinheiro"
-  | "cartao_debito"
-  | "cartao_credito";
-export type StatusPagamento = "pendente" | "pago" | "expirado" | "estornado";
-
-export type TipoChavePix = "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
 
 export interface Profissional {
   id: string;

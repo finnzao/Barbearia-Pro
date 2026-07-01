@@ -62,10 +62,19 @@ export default function AgendarPublico() {
 
   useEffect(() => {
     if (passo !== "horario" || !servicoId) return;
-    setHora("");
+    let ativo = true;
     getHorariosPublico(slug, data, servicoId, profissionalId)
-      .then(setHorarios)
-      .catch(() => setHorarios([]));
+      .then((hs) => {
+        if (!ativo) return;
+        setHorarios(hs);
+        setHora(""); // limpa a seleção anterior quando os novos horários chegam
+      })
+      .catch(() => {
+        if (ativo) setHorarios([]);
+      });
+    return () => {
+      ativo = false;
+    };
   }, [passo, slug, data, servicoId, profissionalId]);
 
   const servico = servicos.find((s) => s.id === servicoId);

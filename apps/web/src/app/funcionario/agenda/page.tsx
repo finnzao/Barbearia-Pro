@@ -27,7 +27,6 @@ export default function AgendaPage() {
 
   useEffect(() => {
     let ativo = true;
-    setEstado("carregando");
     requisitar<AgendamentoFuncionario[]>(`/funcionario/agenda?data=${data}`)
       .then((r) => {
         if (ativo) {

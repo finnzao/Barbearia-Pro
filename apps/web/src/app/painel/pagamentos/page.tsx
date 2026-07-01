@@ -12,14 +12,15 @@ import {
   getServicos,
   type PagamentoLista,
 } from "@/lib/api";
+import { useHash, useLocalStorage } from "@/lib/client-hooks";
 import { METODO_PAGAMENTO_LABEL, METODOS_PAGAMENTO, exigeBaixaManual } from "@/lib/pagamento";
 import { CHAVE_CENTRAL, gradeQr, MARCADOR_PROF, NOME_RECEBEDOR, pixEstaticoBalcao } from "@/lib/pix";
 import {
+  CHAVE_REPASSE,
   CONFIG_REPASSE_PADRAO,
   lerRepasse,
   pendenciasRepasse,
   repassesAnteriores,
-  salvarRepasse,
   type ConfigRepasse,
   type FrequenciaRepasse,
   type ModoRepasse,
@@ -89,6 +90,26 @@ const statusRepasseTom: Record<StatusRepasse, "green" | "amber" | "red"> = { pen
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 
+// Fora do componente: usa Date.now()/Math.random() (impuros), que não podem
+// rodar durante o render. Só depende dos argumentos.
+function criarRepasse(
+  profissionalId: string,
+  profissional: string,
+  valor: number,
+): Repasse {
+  return {
+    id: `rp-${profissionalId}-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+    profissionalId,
+    profissional,
+    periodoInicio: hojeISO(),
+    periodoFim: hojeISO(),
+    valor,
+    origem: "manual",
+    status: "pago",
+    data: hojeISO(),
+  };
+}
+
 function mapPagamento(p: PagamentoLista, profs: Profissional[]): Pagamento {
   return {
     id: p.id,
@@ -128,13 +149,26 @@ function comissoesNoPeriodo(pags: Pagamento[], periodo: Periodo): ComissaoProfis
 }
 
 export default function Pagamentos() {
-  const [aba, setAba] = useState("pagamentos");
+  // Aba inicial pode vir do hash (deep-link); o clique do usuário prevalece.
+  const hash = useHash();
+  const abaDoHash =
+    hash === "#comissoes"
+      ? "comissoes"
+      : hash === "#repasses"
+        ? "repasses"
+        : null;
+  const [abaEscolhida, setAba] = useState<string | null>(null);
+  const aba = abaEscolhida ?? abaDoHash ?? "pagamentos";
   const [periodo, setPeriodo] = useState<Periodo>("dia");
   const [pixDe, setPixDe] = useState<{ id: string; nome: string } | null>(null);
   const [pags, setPags] = useState<Pagamento[]>([]);
   const [profs, setProfs] = useState<Profissional[]>([]);
   const [servs, setServs] = useState<Servico[]>([]);
-  const [cfg, setCfg] = useState<ConfigRepasse>(CONFIG_REPASSE_PADRAO);
+  const [cfg, setCfg] = useLocalStorage<ConfigRepasse>(
+    CHAVE_REPASSE,
+    CONFIG_REPASSE_PADRAO,
+    lerRepasse,
+  );
   const [repassados, setRepassados] = useState<Set<string>>(new Set());
   const [feitos, setFeitos] = useState<Repasse[]>([]);
   const [copiado, setCopiado] = useState(false);
@@ -144,10 +178,6 @@ export default function Pagamentos() {
   const [formReceb, setFormReceb] = useState(FORM_RECEBIMENTO_VAZIO);
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash === "#comissoes") setAba("comissoes");
-    else if (hash === "#repasses") setAba("repasses");
-    setCfg(lerRepasse());
     Promise.all([getProfissionais(), getServicos(), getPagamentos()])
       .then(([ps, ss, pgs]) => {
         setProfs(ps);
@@ -158,11 +188,8 @@ export default function Pagamentos() {
   }, []);
 
   const ajustarCfg = (patch: Partial<ConfigRepasse>) => {
-    setCfg((atual) => {
-      const proximo = { ...atual, ...patch };
-      salvarRepasse(proximo);
-      return proximo;
-    });
+    // o setter do useLocalStorage já persiste (mesmo formato do salvarRepasse).
+    setCfg({ ...cfg, ...patch });
   };
   const mudarFrequencia = (frequencia: FrequenciaRepasse) =>
     ajustarCfg({ frequencia, dia: frequencia === "mensal" ? 5 : 1 });
@@ -215,17 +242,6 @@ export default function Pagamentos() {
   const totalPendente = pendencias.reduce((s, p) => s + p.liquido, 0);
   const historico = [...feitos, ...repassesAnteriores];
 
-  const criarRepasse = (profissionalId: string, profissional: string, valor: number): Repasse => ({
-    id: `rp-${profissionalId}-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-    profissionalId,
-    profissional,
-    periodoInicio: hojeISO(),
-    periodoFim: hojeISO(),
-    valor,
-    origem: "manual",
-    status: "pago",
-    data: hojeISO(),
-  });
   const repassar = (p: { profissionalId: string; profissional: string; liquido: number }) => {
     setFeitos((f) => [criarRepasse(p.profissionalId, p.profissional, p.liquido), ...f]);
     setRepassados((r) => new Set(r).add(p.profissionalId));

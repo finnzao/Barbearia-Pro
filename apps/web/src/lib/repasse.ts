@@ -43,7 +43,7 @@ export const CONFIG_REPASSE_PADRAO: ConfigRepasse = {
   dia: 5,
 };
 
-const CHAVE = "naregua:config-repasse";
+export const CHAVE_REPASSE = "naregua:config-repasse";
 
 export const configRepasseToRow = (cfg: ConfigRepasse): ConfigRepasseRow => ({
   repasse_modo: cfg.modo,
@@ -60,7 +60,7 @@ export const configRepasseFromRow = (row: ConfigRepasseRow): ConfigRepasse => ({
 export function lerRepasse(): ConfigRepasse {
   if (typeof window === "undefined") return CONFIG_REPASSE_PADRAO;
   try {
-    const cru = window.localStorage.getItem(CHAVE);
+    const cru = window.localStorage.getItem(CHAVE_REPASSE);
     if (!cru) return CONFIG_REPASSE_PADRAO;
     const obj = JSON.parse(cru);
     if (obj.modo === undefined && typeof obj.automatico === "boolean") {
@@ -78,7 +78,7 @@ export function lerRepasse(): ConfigRepasse {
 
 export function salvarRepasse(cfg: ConfigRepasse): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(CHAVE, JSON.stringify(cfg));
+  window.localStorage.setItem(CHAVE_REPASSE, JSON.stringify(cfg));
 }
 
 const parteSalao = (valor: number, percent: number) => valor - Math.round(valor * percent);

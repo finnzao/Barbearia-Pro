@@ -6,9 +6,11 @@ import { formatBRL as brl } from "@/lib/money";
 import { Glyph } from "@/app/painel/glyphs";
 import { ATALHOS, SERVICOS } from "@/app/painel/secoes";
 import { getResumoHoje } from "@/lib/api";
+import { useLocalStorage } from "@/lib/client-hooks";
 import type { ResumoHoje } from "@/lib/types";
 
 const CHAVE_FAV = "naregua:favoritos";
+const FAV_VAZIO: string[] = [];
 
 const RESUMO_VAZIO: ResumoHoje = {
   data: "",
@@ -21,29 +23,23 @@ const RESUMO_VAZIO: ResumoHoje = {
 };
 
 export default function Home() {
-  const [favoritos, setFavoritos] = useState<string[]>([]);
+  const [favoritos, setFavoritos] = useLocalStorage<string[]>(
+    CHAVE_FAV,
+    FAV_VAZIO,
+  );
   const [resumo, setResumo] = useState<ResumoHoje>(RESUMO_VAZIO);
 
   useEffect(() => {
-    try {
-      const cru = window.localStorage.getItem(CHAVE_FAV);
-      if (cru) setFavoritos(JSON.parse(cru));
-    } catch {
-      setFavoritos([]);
-    }
     getResumoHoje()
       .then(setResumo)
       .catch(() => {});
   }, []);
 
   const alternarFavorito = (key: string) => {
-    setFavoritos((atual) => {
-      const proximo = atual.includes(key) ? atual.filter((k) => k !== key) : [...atual, key];
-      try {
-        window.localStorage.setItem(CHAVE_FAV, JSON.stringify(proximo));
-      } catch { }
-      return proximo;
-    });
+    const proximo = favoritos.includes(key)
+      ? favoritos.filter((k) => k !== key)
+      : [...favoritos, key];
+    setFavoritos(proximo);
   };
 
   const r = resumo;

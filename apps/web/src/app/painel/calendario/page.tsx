@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Calendario } from "@/components/calendario";
 import { Badge, Card } from "@/ds/components";
+import { useHoje } from "@/lib/client-hooks";
 import { getAgendamentos, getAgendamentosPeriodo } from "@/lib/api";
 import { GRADE_DIA } from "@/lib/mock-data";
 import type { DiaOcupacao } from "@/lib/types";
@@ -10,21 +11,16 @@ import type { DiaOcupacao } from "@/lib/types";
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
 const CAPACIDADE = 16;
+const HOJE_PADRAO = { ano: 2026, mes: 5, dia: 1 };
 const pad = (n: number) => String(n).padStart(2, "0");
 
 export default function CalendarioPage() {
-  const [ref, setRef] = useState({ ano: 2026, mes: 5, hoje: 1 });
-  const [dia, setDia] = useState<number>(1);
+  // Mês corrente vem da data real (hidratação-safe); só o dia é selecionável.
+  const { ano, mes, dia: hoje } = useHoje(HOJE_PADRAO);
+  const [diaSelecionado, setDia] = useState<number | null>(null);
+  const dia = diaSelecionado ?? hoje;
   const [ocupacao, setOcupacao] = useState<DiaOcupacao[]>([]);
   const [slots, setSlots] = useState<[string, boolean][]>([]);
-
-  const { ano, mes, hoje } = ref;
-
-  useEffect(() => {
-    const d = new Date();
-    setRef({ ano: d.getFullYear(), mes: d.getMonth(), hoje: d.getDate() });
-    setDia(d.getDate());
-  }, []);
 
   useEffect(() => {
     const totalDias = new Date(ano, mes + 1, 0).getDate();

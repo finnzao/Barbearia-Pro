@@ -6,9 +6,9 @@ import {
   useContext,
   useEffect,
   useRef,
-  useState,
   type ReactNode,
 } from "react";
+import { useLocalStorage, useMontado } from "./client-hooks";
 import {
   API_BASE,
   ApiError,
@@ -39,45 +39,35 @@ interface AuthContextValor {
 
 const AuthContext = createContext<AuthContextValor | null>(null);
 
-function lerSessao(): Sessao | null {
-  try {
-    const cru = window.localStorage.getItem(CHAVE);
-    return cru ? (JSON.parse(cru) as Sessao) : null;
-  } catch {
-    return null;
-  }
-}
-
-function gravarSessao(sessao: Sessao | null) {
-  try {
-    if (sessao) {
-      window.localStorage.setItem(CHAVE, JSON.stringify(sessao));
-    } else {
-      window.localStorage.removeItem(CHAVE);
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<Status>("carregando");
-  const [usuario, setUsuario] = useState<UsuarioAuth | null>(null);
-  const sessao = useRef<Sessao | null>(null);
+  // A sessão vive no localStorage (hidratação-safe); usuario/status derivam dela.
+  const [sessaoArmazenada, setSessao] = useLocalStorage<Sessao | null>(
+    CHAVE,
+    null,
+  );
+  const montado = useMontado();
 
-  const aplicar = useCallback((nova: Sessao | null) => {
-    sessao.current = nova;
-    gravarSessao(nova);
-    setUsuario(nova?.usuario ?? null);
-    setStatus(nova ? "autenticado" : "deslogado");
-  }, []);
-
+  // Ref com a sessão atual para os fluxos assíncronos (requisitar/renovar/sair),
+  // sem precisar de re-render nem entrar nas deps dos callbacks.
+  const sessao = useRef<Sessao | null>(sessaoArmazenada);
   useEffect(() => {
-    const atual = lerSessao();
-    sessao.current = atual;
-    setUsuario(atual?.usuario ?? null);
-    setStatus(atual ? "autenticado" : "deslogado");
-  }, []);
+    sessao.current = sessaoArmazenada;
+  }, [sessaoArmazenada]);
+
+  const usuario = sessaoArmazenada?.usuario ?? null;
+  const status: Status = !montado
+    ? "carregando"
+    : sessaoArmazenada
+      ? "autenticado"
+      : "deslogado";
+
+  const aplicar = useCallback(
+    (nova: Sessao | null) => {
+      sessao.current = nova;
+      setSessao(nova); // persiste no localStorage e dispara o re-render
+    },
+    [setSessao],
+  );
 
   const entrar = useCallback(
     async (email: string, senha: string) => {

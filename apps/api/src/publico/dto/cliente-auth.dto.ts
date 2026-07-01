@@ -5,6 +5,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { SENHA_FORTE, SENHA_FORTE_MSG } from '../../common/senha';
 
 const WHATSAPP = /^\+?[0-9]{8,15}$/;
 
@@ -38,8 +39,8 @@ export class LoginSenhaDto {
 
 export class DefinirSenhaDto {
   @IsString()
-  @MinLength(6)
   @MaxLength(128)
+  @Matches(SENHA_FORTE, { message: SENHA_FORTE_MSG })
   senha!: string;
 }
 

@@ -3,19 +3,29 @@ services:
   whatsapp:
     build: ./apps/whatsapp
     restart: unless-stopped
-    env_file: ./apps/whatsapp/.env
+    env_file:
+      - path: ./apps/whatsapp/.env
+        required: false
     environment:
       # API roda no host enquanto não há Dockerfile dela; trocar por http://api:3333 quando containerizar.
       WEBHOOK_URL: http://host.docker.internal:3333/api/publico/whatsapp/status
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # Porta privada: só acessível do próprio host (para escanear o QR em /qr), não exposta na internet.
+    # Porta privada: liga só em 127.0.0.1 do VPS — NÃO exposta na internet.
+    # Configuração (QR/status) é feita por túnel SSH: ssh -L 4000:localhost:4000 user@vps
+    # (ver apps/whatsapp/README.md). Esse bind é a fronteira de segurança da config.
     ports:
       - "127.0.0.1:4000:4000"
     volumes:
       - whatsapp_auth:/data/auth
     networks:
       - naregua
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   # Credenciais da sessão: tratar como segredo, manter no backup.
