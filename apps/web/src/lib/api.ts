@@ -1,16 +1,21 @@
 import type { DiaSemana, HorarioSemana } from "./horarios";
 import type { ConfigAgendamento } from "./settings";
 import type { AnaliseSemana } from "./mock-data";
+import type { OrigemRepasse, Repasse, StatusRepasse } from "./repasse";
 import type {
   Agendamento,
+  AssinaturaCliente,
+  Cliente,
   ClienteRecorrente,
   ComissaoProfissional,
   CortesDia,
   FaixaHora,
   FaturamentoMes,
   FormaPagamentoResumo,
+  MetodoCobranca,
   MetodoPagamento,
   Periodo,
+  Plano,
   Profissional,
   ReceitaProfissional,
   RelatorioFinanceiro,
@@ -19,6 +24,7 @@ import type {
   ServicoRealizado,
   StatusPagamento,
   TipoChavePix,
+  UsoAssinatura,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -91,6 +97,7 @@ interface ProfissionalApi {
   comissaoPercent: string | number;
   chavePix: string | null;
   pixTipoChave: Profissional["pixTipoChave"] | null;
+  ativo: boolean;
 }
 interface AgendamentoApi {
   id: string;
@@ -164,6 +171,118 @@ export async function criarServico(dados: {
   };
 }
 
+export async function getClientes(): Promise<Cliente[]> {
+  return apiGet<Cliente[]>("/clientes");
+}
+
+export async function criarCliente(dados: {
+  nome: string;
+  whatsapp: string;
+}): Promise<Cliente> {
+  return apiSend<Cliente>("/clientes", "POST", dados);
+}
+
+interface PlanoApi {
+  id: string;
+  nome: string;
+  precoCentavos: number;
+  ativo: boolean;
+  itens: {
+    servicoId: string;
+    quantidadeMes: number;
+    servico: { nome: string };
+  }[];
+}
+interface AssinaturaClienteApi {
+  id: string;
+  clienteId: string;
+  planoId: string;
+  metodoCobranca: MetodoCobranca;
+  status: AssinaturaCliente["status"];
+  assinadoEm: string;
+  ultimoCicloPagoEm: string | null;
+  plano: PlanoApi;
+}
+
+function mapPlano(p: PlanoApi): Plano {
+  return {
+    id: p.id,
+    nome: p.nome,
+    preco: p.precoCentavos,
+    ativo: p.ativo,
+    itens: p.itens.map((i) => ({
+      servicoId: i.servicoId,
+      servicoNome: i.servico.nome,
+      quantidadeMes: i.quantidadeMes,
+    })),
+  };
+}
+
+function mapAssinatura(a: AssinaturaClienteApi): AssinaturaCliente {
+  return {
+    id: a.id,
+    clienteId: a.clienteId,
+    planoId: a.planoId,
+    metodoCobranca: a.metodoCobranca,
+    status: a.status,
+    assinadoEm: a.assinadoEm,
+    ultimoCicloPagoEm: a.ultimoCicloPagoEm,
+    plano: mapPlano(a.plano),
+  };
+}
+
+export async function getPlanos(): Promise<Plano[]> {
+  const dados = await apiGet<PlanoApi[]>("/planos");
+  return dados.map(mapPlano);
+}
+
+export async function criarPlano(dados: {
+  nome: string;
+  precoCentavos: number;
+  itens: { servicoId: string; quantidadeMes: number }[];
+}): Promise<Plano> {
+  const p = await apiSend<PlanoApi>("/planos", "POST", dados);
+  return mapPlano(p);
+}
+
+export async function getAssinaturasPorCliente(
+  clienteId: string,
+): Promise<AssinaturaCliente[]> {
+  const dados = await apiGet<AssinaturaClienteApi[]>(
+    `/assinaturas-cliente?clienteId=${clienteId}`,
+  );
+  return dados.map(mapAssinatura);
+}
+
+export async function criarAssinaturaCliente(dados: {
+  clienteId: string;
+  planoId: string;
+  metodoCobranca?: MetodoCobranca;
+}): Promise<AssinaturaCliente> {
+  const a = await apiSend<AssinaturaClienteApi>(
+    "/assinaturas-cliente",
+    "POST",
+    dados,
+  );
+  return mapAssinatura(a);
+}
+
+export async function cancelarAssinatura(id: string): Promise<void> {
+  await apiSend(`/assinaturas-cliente/${id}/cancelar`, "PATCH");
+}
+
+export async function marcarCicloPago(id: string): Promise<void> {
+  await apiSend(`/assinaturas-cliente/${id}/pagar-ciclo`, "PATCH");
+}
+
+export async function getUsoAssinatura(id: string): Promise<UsoAssinatura> {
+  return apiGet<UsoAssinatura>(`/assinaturas-cliente/${id}/uso`);
+}
+
+export async function usarPlano(id: string, servicoId: string): Promise<void> {
+  await apiSend(`/assinaturas-cliente/${id}/usar`, "POST", { servicoId });
+}
+
 export async function getProfissionais(): Promise<Profissional[]> {
   const dados = await apiGet<ProfissionalApi[]>("/profissionais");
   return dados.map((p) => ({
@@ -173,6 +292,7 @@ export async function getProfissionais(): Promise<Profissional[]> {
     comissaoPercent: Number(p.comissaoPercent),
     chavePix: p.chavePix ?? undefined,
     pixTipoChave: p.pixTipoChave ?? undefined,
+    ativo: p.ativo,
   }));
 }
 
@@ -191,6 +311,7 @@ export async function criarProfissional(dados: {
     comissaoPercent: Number(p.comissaoPercent),
     chavePix: p.chavePix ?? undefined,
     pixTipoChave: p.pixTipoChave ?? undefined,
+    ativo: p.ativo,
   };
 }
 
@@ -239,8 +360,12 @@ export async function criarAgendamento(dados: {
   await apiSend("/agendamentos", "POST", dados);
 }
 
-export async function getComissoes(): Promise<ComissaoProfissional[]> {
-  const dados = await apiGet<ComissaoApi[]>("/comissoes");
+export async function getComissoes(params?: {
+  de?: string;
+  ate?: string;
+}): Promise<ComissaoProfissional[]> {
+  const query = params?.de && params?.ate ? `?de=${params.de}&ate=${params.ate}` : "";
+  const dados = await apiGet<ComissaoApi[]>(`/comissoes${query}`);
   return dados.map((c) => ({
     profissionalId: c.profissionalId,
     profissional: c.profissional,
@@ -250,6 +375,51 @@ export async function getComissoes(): Promise<ComissaoProfissional[]> {
     comissao: c.comissaoCentavos,
     liquidoBarbearia: c.liquidoBarbeariaCentavos,
   }));
+}
+
+interface RepasseApi {
+  id: string;
+  profissionalId: string;
+  periodoInicio: string;
+  periodoFim: string;
+  valorCentavos: number;
+  origem: OrigemRepasse;
+  status: StatusRepasse;
+  criadoEm: string;
+  pagoEm: string | null;
+}
+
+function mapRepasse(r: RepasseApi, profs: Profissional[]): Repasse {
+  return {
+    id: r.id,
+    profissionalId: r.profissionalId,
+    profissional: profs.find((p) => p.id === r.profissionalId)?.apelido ?? "",
+    periodoInicio: r.periodoInicio.slice(0, 10),
+    periodoFim: r.periodoFim.slice(0, 10),
+    valor: r.valorCentavos,
+    origem: r.origem,
+    status: r.status,
+    data: (r.pagoEm ?? r.criadoEm).slice(0, 10),
+  };
+}
+
+export async function getRepasses(profs: Profissional[]): Promise<Repasse[]> {
+  const dados = await apiGet<RepasseApi[]>("/repasses");
+  return dados.map((r) => mapRepasse(r, profs));
+}
+
+export async function criarRepasseApi(
+  dados: {
+    profissionalId: string;
+    periodoInicio: string;
+    periodoFim: string;
+    valorCentavos: number;
+    origem: OrigemRepasse;
+  },
+  profs: Profissional[],
+): Promise<Repasse> {
+  const r = await apiSend<RepasseApi>("/repasses", "POST", dados);
+  return mapRepasse(r, profs);
 }
 
 export async function getResumoHoje(): Promise<ResumoHoje> {
@@ -355,7 +525,7 @@ export async function salvarHorarios(horario: HorarioSemana): Promise<void> {
   await apiSend("/config/horarios", "PUT", { horarios });
 }
 
-function intervaloPeriodo(periodo: Periodo): { de: string; ate: string } {
+export function intervaloPeriodo(periodo: Periodo): { de: string; ate: string } {
   const hoje = new Date();
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   if (periodo === "dia") {

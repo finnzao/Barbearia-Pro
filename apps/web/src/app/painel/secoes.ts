@@ -34,7 +34,9 @@ export const SERVICOS: Servico[] = [
   { key: "agenda", href: "/painel/agenda", label: "Agenda", icon: "agenda", resumo: "Horários do dia e novos atendimentos.", acao: "Abrir agenda" },
   { key: "pagamentos", href: "/painel/pagamentos", label: "Pagamentos", icon: "pagamentos", resumo: "Recebimentos, comissões e repasse da equipe.", acao: "Ver pagamentos" },
   { key: "profissionais", href: "/painel/profissionais", label: "Profissionais", icon: "equipe", resumo: "Equipe, comissão e chave de repasse.", acao: "Gerenciar equipe" },
+  { key: "servicos", href: "/painel/servicos", label: "Serviços", icon: "servico", resumo: "Catálogo de serviços, preço e duração.", acao: "Gerenciar serviços" },
   { key: "clientes", href: "/painel/clientes", label: "Clientes", icon: "cliente", resumo: "Histórico de atendimentos e fidelidade.", acao: "Ver clientes" },
+  { key: "planos", href: "/painel/planos", label: "Planos", icon: "pagamentos", resumo: "Planos de assinatura vendidos aos clientes.", acao: "Ver planos" },
   { key: "relatorios", href: "/painel/relatorios", label: "Relatórios", icon: "relatorios", resumo: "Faturamento, ocupação e desempenho da semana.", acao: "Ver relatórios" },
   { key: "configuracoes", href: "/painel/configuracoes", label: "Configurações", icon: "config", resumo: "Horários, serviços, preços e preferências.", acao: "Abrir configurações" },
 ];

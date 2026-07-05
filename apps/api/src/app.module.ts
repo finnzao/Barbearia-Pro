@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AgendamentosModule } from './agendamentos/agendamentos.module';
 import { AppController } from './app.controller';
+import { AssinaturasModule } from './assinaturas/assinaturas.module';
 import { AuthModule } from './auth/auth.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { ComissoesModule } from './comissoes/comissoes.module';
@@ -32,6 +33,7 @@ import { TenantModule } from './tenant/tenant.module';
     ProfissionaisModule,
     ClientesModule,
     AgendamentosModule,
+    AssinaturasModule,
     PagamentosModule,
     ComissoesModule,
     RepassesModule,

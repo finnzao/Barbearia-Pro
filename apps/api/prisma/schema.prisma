@@ -92,6 +92,20 @@ enum TipoChavePix {
   @@map("tipo_chave_pix")
 }
 
+enum MetodoCobranca {
+  manual
+  cartao_recorrente
+
+  @@map("metodo_cobranca")
+}
+
+enum StatusAssinaturaCliente {
+  ativa
+  cancelada
+
+  @@map("status_assinatura_cliente")
+}
+
 model Barbearia {
   id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nome                String
@@ -119,6 +133,8 @@ model Barbearia {
   repasses          Repasse[]
   splits            SplitPagamento[]
   notificacoes      NotificacaoWhatsapp[]
+  planosAssinatura   PlanoAssinatura[]
+  assinaturasCliente AssinaturaCliente[]
 
   @@map("barbearia")
 }
@@ -269,6 +285,7 @@ model Servico {
   profissionais ProfissionalServico[]
   agendamentos  Agendamento[]
   pagamentos    Pagamento[]
+  itensPlano    PlanoAssinaturaItem[]
 
   @@index([barbeariaId])
   @@map("servico")
@@ -296,6 +313,7 @@ model Cliente {
 
   barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   agendamentos Agendamento[]
+  assinaturas  AssinaturaCliente[]
 
   @@unique([barbeariaId, whatsapp])
   @@map("cliente")
@@ -318,31 +336,90 @@ model VerificacaoCliente {
 }
 
 model Agendamento {
-  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  barbeariaId    String            @map("barbearia_id") @db.Uuid
-  profissionalId String?           @map("profissional_id") @db.Uuid
-  servicoId      String?           @map("servico_id") @db.Uuid
-  clienteId      String?           @map("cliente_id") @db.Uuid
-  clienteNome    String?           @map("cliente_nome")
-  precoCentavos  Int?              @map("preco_centavos")
-  inicio         DateTime          @db.Timestamptz(6)
-  fim            DateTime          @db.Timestamptz(6)
-  status         StatusAgendamento @default(confirmado)
-  origem         OrigemAgendamento @default(cliente)
-  observacao     String?
-  criadoEm       DateTime          @default(now()) @map("criado_em") @db.Timestamptz(6)
-  atualizadoEm   DateTime          @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId         String            @map("barbearia_id") @db.Uuid
+  profissionalId      String?           @map("profissional_id") @db.Uuid
+  servicoId           String?           @map("servico_id") @db.Uuid
+  clienteId           String?           @map("cliente_id") @db.Uuid
+  clienteNome         String?           @map("cliente_nome")
+  precoCentavos       Int?              @map("preco_centavos")
+  assinaturaClienteId String?           @map("assinatura_cliente_id") @db.Uuid
+  inicio              DateTime          @db.Timestamptz(6)
+  fim                 DateTime          @db.Timestamptz(6)
+  status              StatusAgendamento @default(confirmado)
+  origem              OrigemAgendamento @default(cliente)
+  observacao          String?
+  criadoEm            DateTime          @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm        DateTime          @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
 
-  barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  profissional Profissional? @relation(fields: [profissionalId], references: [id], onDelete: SetNull)
-  servico      Servico?      @relation(fields: [servicoId], references: [id], onDelete: SetNull)
-  cliente      Cliente?      @relation(fields: [clienteId], references: [id], onDelete: SetNull)
-  pagamentos   Pagamento[]
-  notificacoes NotificacaoWhatsapp[]
+  barbearia         Barbearia          @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  profissional      Profissional?      @relation(fields: [profissionalId], references: [id], onDelete: SetNull)
+  servico           Servico?           @relation(fields: [servicoId], references: [id], onDelete: SetNull)
+  cliente           Cliente?           @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  assinaturaCliente AssinaturaCliente? @relation(fields: [assinaturaClienteId], references: [id], onDelete: SetNull)
+  pagamentos        Pagamento[]
+  notificacoes      NotificacaoWhatsapp[]
 
   @@index([barbeariaId, inicio])
   @@index([profissionalId, inicio])
+  @@index([assinaturaClienteId, servicoId, status])
   @@map("agendamento")
+}
+
+// Catálogo de planos de assinatura que a barbearia vende aos próprios clientes
+// (não confundir com a assinatura do SaaS, RN-31). Vale para a barbearia
+// inteira, não por profissional.
+model PlanoAssinatura {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId   String   @map("barbearia_id") @db.Uuid
+  nome          String
+  precoCentavos Int      @map("preco_centavos")
+  ativo         Boolean  @default(true)
+  criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  barbearia   Barbearia             @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  itens       PlanoAssinaturaItem[]
+  assinaturas AssinaturaCliente[]
+
+  @@index([barbeariaId])
+  @@map("plano_assinatura")
+}
+
+// Cesta do plano: quantas vezes por mês cada serviço está incluído.
+model PlanoAssinaturaItem {
+  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planoId       String @map("plano_id") @db.Uuid
+  servicoId     String @map("servico_id") @db.Uuid
+  quantidadeMes Int    @map("quantidade_mes")
+
+  plano   PlanoAssinatura @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  servico Servico         @relation(fields: [servicoId], references: [id], onDelete: Restrict)
+
+  @@unique([planoId, servicoId])
+  @@map("plano_assinatura_item")
+}
+
+// Vínculo do cliente a um plano. O uso do ciclo é derivado (não armazenado):
+// conta os agendamentos concluídos ligados a esta assinatura, como a comissão
+// é derivada do pagamento (RN-17) — nunca um segundo lugar de verdade.
+model AssinaturaCliente {
+  id                String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId       String                   @map("barbearia_id") @db.Uuid
+  clienteId         String                   @map("cliente_id") @db.Uuid
+  planoId           String                   @map("plano_id") @db.Uuid
+  metodoCobranca    MetodoCobranca           @default(manual) @map("metodo_cobranca")
+  status            StatusAssinaturaCliente  @default(ativa)
+  assinadoEm        DateTime                 @default(now()) @map("assinado_em") @db.Timestamptz(6)
+  ultimoCicloPagoEm DateTime?                @map("ultimo_ciclo_pago_em") @db.Timestamptz(6)
+  canceladoEm       DateTime?                @map("cancelado_em") @db.Timestamptz(6)
+
+  barbearia    Barbearia       @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  cliente      Cliente         @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  plano        PlanoAssinatura @relation(fields: [planoId], references: [id], onDelete: Restrict)
+  agendamentos Agendamento[]
+
+  @@index([barbeariaId, clienteId])
+  @@map("assinatura_cliente")
 }
 
 enum TipoNotificacao {

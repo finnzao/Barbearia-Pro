@@ -1,4 +1,4 @@
-import { pagamentos, profissionais } from "@/lib/mock-data";
+import type { Pagamento, Profissional } from "@/lib/types";
 
 export type FrequenciaRepasse = "semanal" | "quinzenal" | "mensal";
 export type ModoRepasse = "imediato" | "periodico" | "manual";
@@ -85,8 +85,9 @@ const parteSalao = (valor: number, percent: number) => valor - Math.round(valor 
 const parteProfissional = (valor: number, percent: number) => Math.round(valor * percent);
 
 export function pendenciasRepasse(
-  modo: ModoRepasse = "periodico",
-  lista = pagamentos,
+  modo: ModoRepasse,
+  lista: Pagamento[],
+  profissionais: Profissional[],
 ): PendenciaRepasse[] {
   return profissionais.map((p) => {
     const pagos = lista.filter((pg) => pg.profissionalId === p.id && pg.status === "pago");
@@ -109,39 +110,3 @@ export function pendenciasRepasse(
     };
   });
 }
-
-export const repassesAnteriores: Repasse[] = [
-  {
-    id: "rp-202605-p1",
-    profissionalId: "p1",
-    profissional: "Téo Andrade",
-    periodoInicio: "2026-05-01",
-    periodoFim: "2026-05-31",
-    valor: 312000,
-    origem: "automatico",
-    status: "pago",
-    data: "2026-06-05",
-  },
-  {
-    id: "rp-202605-p2",
-    profissionalId: "p2",
-    profissional: "Rafael Lima",
-    periodoInicio: "2026-05-01",
-    periodoFim: "2026-05-31",
-    valor: 248000,
-    origem: "automatico",
-    status: "pago",
-    data: "2026-06-05",
-  },
-  {
-    id: "rp-saida-p3",
-    profissionalId: "p3",
-    profissional: "Bruno Souza",
-    periodoInicio: "2026-06-01",
-    periodoFim: "2026-06-10",
-    valor: 69000,
-    origem: "manual",
-    status: "pago",
-    data: "2026-06-10",
-  },
-];

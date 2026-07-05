@@ -2,6 +2,9 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+# git: o Baileys puxa a dependência libsignal via github (npm precisa clonar).
+RUN apk add --no-cache git
+
 COPY package.json ./
 RUN npm install --omit=dev
 

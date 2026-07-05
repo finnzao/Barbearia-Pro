@@ -1,26 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Glyph } from "@/app/painel/glyphs";
 import { Avatar, Badge, Btn, Card, Money, Modal, Row, Seg, Select, brl, pct } from "@/app/painel/ui";
-import { comissoesDerivadas } from "@/lib/mock-data";
 import {
   criarPagamento,
+  criarRepasseApi,
   darBaixaPagamento,
+  getComissoes,
   getPagamentos,
   getProfissionais,
+  getRepasses,
   getServicos,
+  intervaloPeriodo,
   type PagamentoLista,
 } from "@/lib/api";
 import { useHash, useLocalStorage } from "@/lib/client-hooks";
 import { METODO_PAGAMENTO_LABEL, METODOS_PAGAMENTO, exigeBaixaManual } from "@/lib/pagamento";
-import { CHAVE_CENTRAL, gradeQr, MARCADOR_PROF, NOME_RECEBEDOR, pixEstaticoBalcao } from "@/lib/pix";
 import {
   CHAVE_REPASSE,
   CONFIG_REPASSE_PADRAO,
   lerRepasse,
   pendenciasRepasse,
-  repassesAnteriores,
   type ConfigRepasse,
   type FrequenciaRepasse,
   type ModoRepasse,
@@ -83,32 +84,9 @@ const FORM_RECEBIMENTO_VAZIO = {
   metodo: "" as "" | MetodoPagamento,
 };
 
-const FATOR_PERIODO: Record<Periodo, number> = { dia: 1, semana: 6, mes: 26 };
 const origemLabel: Record<OrigemRepasse, string> = { automatico: "Automático", manual: "Manual", split: "Split" };
 const statusRepasseLabel: Record<StatusRepasse, string> = { pendente: "Pendente", pago: "Pago", estornado: "Estornado" };
 const statusRepasseTom: Record<StatusRepasse, "green" | "amber" | "red"> = { pendente: "amber", pago: "green", estornado: "red" };
-
-const hojeISO = () => new Date().toISOString().slice(0, 10);
-
-// Fora do componente: usa Date.now()/Math.random() (impuros), que não podem
-// rodar durante o render. Só depende dos argumentos.
-function criarRepasse(
-  profissionalId: string,
-  profissional: string,
-  valor: number,
-): Repasse {
-  return {
-    id: `rp-${profissionalId}-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-    profissionalId,
-    profissional,
-    periodoInicio: hojeISO(),
-    periodoFim: hojeISO(),
-    valor,
-    origem: "manual",
-    status: "pago",
-    data: hojeISO(),
-  };
-}
 
 function mapPagamento(p: PagamentoLista, profs: Profissional[]): Pagamento {
   return {
@@ -133,21 +111,6 @@ function rotuloPeriodo(r: Repasse): string {
   return `${ini.getDate()}–${fim.getDate()} ${mes}`;
 }
 
-function comissoesNoPeriodo(pags: Pagamento[], periodo: Periodo): ComissaoProfissional[] {
-  const f = FATOR_PERIODO[periodo];
-  return comissoesDerivadas(pags).map((c) => {
-    const faturado = c.faturado * f;
-    const comissao = c.comissao * f;
-    return {
-      ...c,
-      atendimentos: c.atendimentos * f,
-      faturado,
-      comissao,
-      liquidoBarbearia: faturado - comissao,
-    };
-  });
-}
-
 export default function Pagamentos() {
   // Aba inicial pode vir do hash (deep-link); o clique do usuário prevalece.
   const hash = useHash();
@@ -160,7 +123,6 @@ export default function Pagamentos() {
   const [abaEscolhida, setAba] = useState<string | null>(null);
   const aba = abaEscolhida ?? abaDoHash ?? "pagamentos";
   const [periodo, setPeriodo] = useState<Periodo>("dia");
-  const [pixDe, setPixDe] = useState<{ id: string; nome: string } | null>(null);
   const [pags, setPags] = useState<Pagamento[]>([]);
   const [profs, setProfs] = useState<Profissional[]>([]);
   const [servs, setServs] = useState<Servico[]>([]);
@@ -170,8 +132,8 @@ export default function Pagamentos() {
     lerRepasse,
   );
   const [repassados, setRepassados] = useState<Set<string>>(new Set());
-  const [feitos, setFeitos] = useState<Repasse[]>([]);
-  const [copiado, setCopiado] = useState(false);
+  const [historico, setHistorico] = useState<Repasse[]>([]);
+  const [comissoes, setComissoes] = useState<ComissaoProfissional[]>([]);
 
   // Registro manual de recebimento (dinheiro / cartão).
   const [novoAberto, setNovoAberto] = useState(false);
@@ -183,9 +145,19 @@ export default function Pagamentos() {
         setProfs(ps);
         setServs(ss);
         setPags(pgs.map((p) => mapPagamento(p, ps)));
+        return getRepasses(ps);
       })
+      .then(setHistorico)
       .catch(() => {});
   }, []);
+
+  // Comissões vêm da API real, filtradas pelo período selecionado (dia/semana/mês).
+  useEffect(() => {
+    const { de, ate } = intervaloPeriodo(periodo);
+    getComissoes({ de, ate })
+      .then(setComissoes)
+      .catch(() => setComissoes([]));
+  }, [periodo]);
 
   const ajustarCfg = (patch: Partial<ConfigRepasse>) => {
     // o setter do useLocalStorage já persiste (mesmo formato do salvarRepasse).
@@ -231,29 +203,38 @@ export default function Pagamentos() {
   const totalRecebido = recebidosPagos.reduce((s, pg) => s + pg.valor, 0);
   const aConfirmar = pags.filter((pg) => pg.status !== "pago" && exigeBaixaManual(pg.metodo)).length;
 
-  const comissoes = useMemo(() => comissoesNoPeriodo(pags, periodo), [pags, periodo]);
   const totalFaturado = comissoes.reduce((s, c) => s + c.faturado, 0);
   const totalComissao = comissoes.reduce((s, c) => s + c.comissao, 0);
   const totalLiquido = comissoes.reduce((s, c) => s + c.liquidoBarbearia, 0);
 
-  const pendenciasBrutas = useMemo(() => pendenciasRepasse(cfg.modo, pags), [cfg.modo, pags]);
+  const pendenciasBrutas = pendenciasRepasse(cfg.modo, pags, profs);
   const pendencias = pendenciasBrutas.filter((p) => p.liquido > 0 && !repassados.has(p.profissionalId));
   const aReceberDinheiro = pendenciasBrutas.filter((p) => p.liquido < 0);
   const totalPendente = pendencias.reduce((s, p) => s + p.liquido, 0);
-  const historico = [...feitos, ...repassesAnteriores];
 
-  const repassar = (p: { profissionalId: string; profissional: string; liquido: number }) => {
-    setFeitos((f) => [criarRepasse(p.profissionalId, p.profissional, p.liquido), ...f]);
+  // Repassa de verdade (POST /repasses); a UI marca como "feito" na hora,
+  // mas a fonte de verdade do histórico é sempre o próximo refetch da API.
+  const repassar = async (p: { profissionalId: string; profissional: string; liquido: number }) => {
+    // periodoInicio/Fim precisam ser datetime ISO completo — o Prisma rejeita
+    // uma data pura ("2026-07-04") num campo DateTime.
+    const agora = new Date().toISOString();
+    const novo = await criarRepasseApi(
+      {
+        profissionalId: p.profissionalId,
+        periodoInicio: agora,
+        periodoFim: agora,
+        valorCentavos: p.liquido,
+        origem: "manual",
+      },
+      profs,
+    );
+    setHistorico((h) => [novo, ...h]);
     setRepassados((r) => new Set(r).add(p.profissionalId));
   };
-  const repassarTodos = () => {
-    const novos = pendencias.map((p) => criarRepasse(p.profissionalId, p.profissional, p.liquido));
-    setFeitos((f) => [...novos, ...f]);
-    setRepassados((r) => {
-      const n = new Set(r);
-      pendencias.forEach((p) => n.add(p.profissionalId));
-      return n;
-    });
+  const repassarTodos = async () => {
+    for (const p of pendencias) {
+      await repassar(p);
+    }
   };
 
   const nomeDia = DIAS_SEMANA.find((d) => Number(d.value) === cfg.dia)?.label ?? "";
@@ -330,24 +311,6 @@ export default function Pagamentos() {
                   />
                 );
               })}
-            </div>
-          </Card>
-
-          <Card title="Pix fixo da equipe" action={<span className="pn-note">toque para ver o QR</span>}>
-            <p className="pn-note">
-              QR fixo de balcão de cada profissional: conta do salão com o marcador dele embutido, já pronto para o split.
-            </p>
-            <div className="pn-list">
-              {profs.map((p) => (
-                <Row
-                  key={p.id}
-                  leading={<Avatar name={p.nome} size="sm" />}
-                  title={p.nome}
-                  subtitle={`Conta do salão · marcador ${MARCADOR_PROF[p.id] ?? p.id}`}
-                  trailing={<Glyph name="pix" size={20} style={{ color: "var(--pn-accent-strong)" }} />}
-                  onClick={() => setPixDe({ id: p.id, nome: p.nome })}
-                />
-              ))}
             </div>
           </Card>
         </>
@@ -553,42 +516,6 @@ export default function Pagamentos() {
           )}
         </div>
       </Modal>
-
-      <Modal open={!!pixDe} onClose={() => setPixDe(null)} title={pixDe ? `Pix fixo · ${pixDe.nome}` : ""}>
-        {pixDe && (
-          <div className="pn-pix">
-            <div className="pn-pix__resumo">
-              <span className="pn-pix__name">{pixDe.nome}</span>
-              <span className="pn-pix__meta">{NOME_RECEBEDOR} · {CHAVE_CENTRAL}</span>
-              <span className="pn-pix__meta">marcador {MARCADOR_PROF[pixDe.id] ?? pixDe.id}</span>
-            </div>
-            <PixQr seed={pixEstaticoBalcao(MARCADOR_PROF[pixDe.id] ?? pixDe.id)} />
-            <button
-              type="button"
-              className="pn-copia"
-              onClick={async () => {
-                await navigator.clipboard.writeText(pixEstaticoBalcao(MARCADOR_PROF[pixDe.id] ?? pixDe.id));
-                setCopiado(true);
-              }}
-            >
-              <span className="pn-copia__code">{pixEstaticoBalcao(MARCADOR_PROF[pixDe.id] ?? pixDe.id)}</span>
-              <span className="pn-copia__act">
-                <Glyph name={copiado ? "check" : "copy"} size={16} />
-                {copiado ? "Copiado" : "Copiar"}
-              </span>
-            </button>
-          </div>
-        )}
-      </Modal>
     </div>
-  );
-}
-
-function PixQr({ seed }: { seed: string }) {
-  const grade = useMemo(() => gradeQr(seed), [seed]);
-  return (
-    <svg className="pn-qr" viewBox={`0 0 ${grade.length} ${grade.length}`} role="img" aria-label="QR do Pix fixo">
-      {grade.map((linha, y) => linha.map((on, x) => (on ? <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} /> : null)))}
-    </svg>
   );
 }

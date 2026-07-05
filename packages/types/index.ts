@@ -33,5 +33,9 @@ export type PapelUsuario = "dono" | "profissional" | "recepcao";
 
 export type TipoChavePix = "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
 
+export type MetodoCobranca = "manual" | "cartao_recorrente";
+
+export type StatusAssinaturaCliente = "ativa" | "cancelada";
+
 /** Valor monetário em centavos inteiros (RN-02). Nunca float. */
 export type Centavos = number;

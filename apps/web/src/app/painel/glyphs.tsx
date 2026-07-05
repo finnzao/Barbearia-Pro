@@ -42,6 +42,13 @@ const FORMAS: Record<string, ReactNode> = {
       <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
     </>
   ),
+  servico: (
+    <>
+      <circle cx="6.5" cy="6.5" r="2.6" />
+      <circle cx="6.5" cy="17.5" r="2.6" />
+      <path d="M19.5 5 8.8 15.7M14.7 14.3 19.5 19M8.8 8.3l3.3 3.3" />
+    </>
+  ),
   relatorios: (
     <>
       <path d="M4 20h16" />

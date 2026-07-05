@@ -19,6 +19,8 @@ create type papel_usuario as enum ('dono', 'profissional', 'recepcao');
 create type tipo_chave_pix as enum ('cpf', 'cnpj', 'email', 'telefone', 'aleatoria');
 create type tipo_notificacao as enum ('confirmacao', 'lembrete', 'cancelamento', 'remarcacao');
 create type status_notificacao as enum ('pendente', 'enviado', 'falha');
+create type metodo_cobranca as enum ('manual', 'cartao_recorrente');
+create type status_assinatura_cliente as enum ('ativa', 'cancelada');
 
 create table barbearia (
   id                     uuid primary key default gen_random_uuid(),
@@ -170,25 +172,67 @@ create table verificacao_cliente (
 );
 create index on verificacao_cliente (barbearia_id, whatsapp);
 
+-- Catálogo de planos de assinatura vendidos pela barbearia aos próprios
+-- clientes (não confundir com a assinatura do SaaS). Vale pra barbearia
+-- inteira, não por profissional.
+create table plano_assinatura (
+  id             uuid primary key default gen_random_uuid(),
+  barbearia_id   uuid not null references barbearia(id) on delete cascade,
+  nome           text not null,
+  preco_centavos int not null check (preco_centavos >= 0),
+  ativo          boolean not null default true,
+  criado_em      timestamptz not null default now()
+);
+create index on plano_assinatura (barbearia_id);
+
+-- Cesta do plano: quantas vezes por mês cada serviço está incluído.
+create table plano_assinatura_item (
+  id             uuid primary key default gen_random_uuid(),
+  plano_id       uuid not null references plano_assinatura(id) on delete cascade,
+  servico_id     uuid not null references servico(id) on delete restrict,
+  quantidade_mes int not null check (quantidade_mes > 0),
+  unique (plano_id, servico_id)
+);
+
+-- Vínculo do cliente a um plano. O uso do ciclo é derivado (contagem de
+-- agendamentos concluídos ligados a esta assinatura), nunca armazenado —
+-- mesmo princípio da comissão (derivada do pagamento, RN-17).
+create table assinatura_cliente (
+  id                   uuid primary key default gen_random_uuid(),
+  barbearia_id         uuid not null references barbearia(id) on delete cascade,
+  cliente_id           uuid not null references cliente(id) on delete cascade,
+  plano_id             uuid not null references plano_assinatura(id) on delete restrict,
+  metodo_cobranca      metodo_cobranca not null default 'manual',
+  status               status_assinatura_cliente not null default 'ativa',
+  assinado_em          timestamptz not null default now(),
+  ultimo_ciclo_pago_em timestamptz,
+  cancelado_em         timestamptz
+);
+create index on assinatura_cliente (barbearia_id, cliente_id);
+-- Só uma assinatura ativa por cliente ao mesmo tempo.
+create unique index assinatura_cliente_ativa_unica on assinatura_cliente (cliente_id) where (status = 'ativa');
+
 create table agendamento (
-  id              uuid primary key default gen_random_uuid(),
-  barbearia_id    uuid not null references barbearia(id) on delete cascade,
-  profissional_id uuid references profissional(id) on delete set null,
-  servico_id      uuid references servico(id) on delete set null,
-  cliente_id      uuid references cliente(id) on delete set null,
-  cliente_nome    text,
-  preco_centavos  int check (preco_centavos >= 0),
-  inicio          timestamptz not null,
-  fim             timestamptz not null,
-  status          status_agendamento not null default 'confirmado',
-  origem          origem_agendamento not null default 'cliente',
-  observacao      text,
-  criado_em       timestamptz not null default now(),
-  atualizado_em   timestamptz not null default now(),
+  id                    uuid primary key default gen_random_uuid(),
+  barbearia_id          uuid not null references barbearia(id) on delete cascade,
+  profissional_id       uuid references profissional(id) on delete set null,
+  servico_id            uuid references servico(id) on delete set null,
+  cliente_id            uuid references cliente(id) on delete set null,
+  cliente_nome          text,
+  preco_centavos        int check (preco_centavos >= 0),
+  assinatura_cliente_id uuid references assinatura_cliente(id) on delete set null,
+  inicio                timestamptz not null,
+  fim                   timestamptz not null,
+  status                status_agendamento not null default 'confirmado',
+  origem                origem_agendamento not null default 'cliente',
+  observacao            text,
+  criado_em             timestamptz not null default now(),
+  atualizado_em         timestamptz not null default now(),
   check (fim > inicio)
 );
 create index on agendamento (barbearia_id, inicio);
 create index on agendamento (profissional_id, inicio);
+create index on agendamento (assinatura_cliente_id, servico_id, status);
 
 alter table agendamento
   add constraint agendamento_sem_overlap

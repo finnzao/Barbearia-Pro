@@ -23,6 +23,8 @@ const CAMPO_TENANT: Record<string, string> = {
   Pagamento: 'barbeariaId',
   SplitPagamento: 'barbeariaId',
   Repasse: 'barbeariaId',
+  PlanoAssinatura: 'barbeariaId',
+  AssinaturaCliente: 'barbeariaId',
 };
 
 export function tenantExtension(tenant: TenantContext) {

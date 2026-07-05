@@ -5,24 +5,28 @@
 
 import type {
   FrequenciaRepasse as PrismaFrequenciaRepasse,
+  MetodoCobranca as PrismaMetodoCobranca,
   MetodoPagamento as PrismaMetodoPagamento,
   ModoRepasse as PrismaModoRepasse,
   OrigemAgendamento as PrismaOrigemAgendamento,
   OrigemRepasse as PrismaOrigemRepasse,
   PapelUsuario as PrismaPapelUsuario,
   StatusAgendamento as PrismaStatusAgendamento,
+  StatusAssinaturaCliente as PrismaStatusAssinaturaCliente,
   StatusPagamento as PrismaStatusPagamento,
   StatusRepasse as PrismaStatusRepasse,
   TipoChavePix as PrismaTipoChavePix,
 } from '@prisma/client';
 import type {
   FrequenciaRepasse,
+  MetodoCobranca,
   MetodoPagamento,
   ModoRepasse,
   OrigemAgendamento,
   OrigemRepasse,
   PapelUsuario,
   StatusAgendamento,
+  StatusAssinaturaCliente,
   StatusPagamento,
   StatusRepasse,
   TipoChavePix,
@@ -46,6 +50,11 @@ const _contrato: {
   frequenciaRepasse: Equivalente<PrismaFrequenciaRepasse, FrequenciaRepasse>;
   papelUsuario: Equivalente<PrismaPapelUsuario, PapelUsuario>;
   tipoChavePix: Equivalente<PrismaTipoChavePix, TipoChavePix>;
+  metodoCobranca: Equivalente<PrismaMetodoCobranca, MetodoCobranca>;
+  statusAssinaturaCliente: Equivalente<
+    PrismaStatusAssinaturaCliente,
+    StatusAssinaturaCliente
+  >;
 } = {
   statusAgendamento: true,
   origemAgendamento: true,
@@ -57,6 +66,8 @@ const _contrato: {
   frequenciaRepasse: true,
   papelUsuario: true,
   tipoChavePix: true,
+  metodoCobranca: true,
+  statusAssinaturaCliente: true,
 };
 
 void _contrato;

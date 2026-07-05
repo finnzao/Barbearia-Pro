@@ -1,15 +1,19 @@
 // Enums do domínio vêm do contrato compartilhado (@naregua/types), reexportados
 // para os consumidores atuais de "@/lib/types".
 import type {
+  MetodoCobranca,
   MetodoPagamento,
   StatusAgendamento,
+  StatusAssinaturaCliente,
   StatusPagamento,
   TipoChavePix,
 } from "@naregua/types";
 
 export type {
+  MetodoCobranca,
   MetodoPagamento,
   StatusAgendamento,
+  StatusAssinaturaCliente,
   StatusPagamento,
   TipoChavePix,
 };
@@ -23,6 +27,7 @@ export interface Profissional {
   comissaoPercent: number;
   chavePix?: string;
   pixTipoChave?: TipoChavePix;
+  ativo: boolean;
 }
 
 export interface Servico {
@@ -30,6 +35,48 @@ export interface Servico {
   nome: string;
   duracaoMin: number;
   preco: number;
+}
+
+export interface Cliente {
+  id: string;
+  nome: string;
+  whatsapp: string;
+}
+
+export interface ItemPlano {
+  servicoId: string;
+  servicoNome: string;
+  quantidadeMes: number;
+}
+
+export interface Plano {
+  id: string;
+  nome: string;
+  preco: number;
+  ativo: boolean;
+  itens: ItemPlano[];
+}
+
+export interface UsoItemAssinatura extends ItemPlano {
+  usadoNoCiclo: number;
+  restante: number;
+}
+
+export interface UsoAssinatura {
+  cicloInicio: string;
+  cicloFim: string;
+  itens: UsoItemAssinatura[];
+}
+
+export interface AssinaturaCliente {
+  id: string;
+  clienteId: string;
+  planoId: string;
+  metodoCobranca: MetodoCobranca;
+  status: StatusAssinaturaCliente;
+  assinadoEm: string;
+  ultimoCicloPagoEm: string | null;
+  plano: Plano;
 }
 
 export interface Agendamento {
