@@ -38,15 +38,68 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333/api";
 
 const CHAVE_SESSAO = "naregua:auth";
+// Mesmo evento do useLocalStorage: gravar por aqui mantém o auth-context em dia.
+const EVENTO_LOCAL = "naregua:localstorage";
 
-function tokenAtual(): string | null {
+interface SessaoLocal {
+  accessToken: string;
+  refreshToken: string;
+  usuario: unknown;
+}
+
+function sessaoAtual(): SessaoLocal | null {
   if (typeof window === "undefined") return null;
   try {
     const cru = window.localStorage.getItem(CHAVE_SESSAO);
-    return cru ? (JSON.parse(cru).accessToken ?? null) : null;
+    return cru ? (JSON.parse(cru) as SessaoLocal) : null;
   } catch {
     return null;
   }
+}
+
+function gravarSessao(sessao: SessaoLocal | null): void {
+  try {
+    if (sessao) {
+      window.localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
+    } else {
+      window.localStorage.removeItem(CHAVE_SESSAO);
+    }
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(EVENTO_LOCAL));
+}
+
+// Uma renovação por vez: chamadas paralelas que tomaram 401 esperam a mesma
+// promise — o refresh token rotaciona no servidor, e dois refreshes em corrida
+// revogariam um ao outro e derrubariam a sessão.
+let renovacaoEmVoo: Promise<string | null> | null = null;
+function renovarSessao(): Promise<string | null> {
+  renovacaoEmVoo ??= (async () => {
+    const sessao = sessaoAtual();
+    if (!sessao?.refreshToken) return null;
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: sessao.refreshToken }),
+      });
+      if (!res.ok) {
+        // Refresh revogado/expirado: a sessão morreu de vez — limpa e o guard
+        // de rota leva pro login.
+        gravarSessao(null);
+        return null;
+      }
+      const tokens = (await res.json()) as SessaoLocal;
+      gravarSessao(tokens);
+      return tokens.accessToken;
+    } catch {
+      return null; // falha de rede: mantém a sessão; o erro original sobe
+    } finally {
+      renovacaoEmVoo = null;
+    }
+  })();
+  return renovacaoEmVoo;
 }
 
 async function ler<T>(res: Response): Promise<T> {
@@ -58,17 +111,31 @@ async function ler<T>(res: Response): Promise<T> {
   return corpo as T;
 }
 
-function autorizacao(): HeadersInit {
-  const token = tokenAtual();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+// O access token dura 15 min: todo request que tomar 401 renova a sessão com o
+// refresh token (revogável, rotacionado) e repete UMA vez. Sem isso, qualquer
+// tela aberta há mais de 15 min quebrava em silêncio.
+async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const exec = (token: string | null | undefined) =>
+    fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: {
+        ...(init.headers ?? {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+  let res = await exec(sessaoAtual()?.accessToken);
+  if (res.status === 401) {
+    const novoToken = await renovarSessao();
+    if (novoToken) {
+      res = await exec(novoToken);
+    }
+  }
+  return ler<T>(res);
 }
 
 async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: autorizacao(),
-    cache: "no-store",
-  });
-  return ler<T>(res);
+  return apiFetch<T>(path, { cache: "no-store" });
 }
 
 export async function apiSend<T>(
@@ -76,12 +143,11 @@ export async function apiSend<T>(
   metodo: "POST" | "PATCH" | "PUT" | "DELETE",
   corpo?: unknown,
 ): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  return apiFetch<T>(path, {
     method: metodo,
-    headers: { "Content-Type": "application/json", ...autorizacao() },
+    headers: { "Content-Type": "application/json" },
     body: corpo === undefined ? undefined : JSON.stringify(corpo),
   });
-  return ler<T>(res);
 }
 
 interface ServicoApi {
@@ -454,10 +520,18 @@ export interface PagamentoLista {
   metodo: MetodoPagamento;
   status: StatusPagamento;
   pagoEm: string | null;
+  txid: string | null;
+  copiaCola: string | null;
+  /** Só vem na resposta da criação de um pix_dinamico (não persiste). */
+  qrCodeBase64?: string;
 }
 
 export function getPagamentos(): Promise<PagamentoLista[]> {
   return apiGet<PagamentoLista[]>("/pagamentos");
+}
+
+export function getPagamento(id: string): Promise<PagamentoLista> {
+  return apiGet<PagamentoLista>(`/pagamentos/${id}`);
 }
 
 export function criarPagamento(dados: {
@@ -472,6 +546,20 @@ export function criarPagamento(dados: {
 
 export function darBaixaPagamento(id: string): Promise<PagamentoLista> {
   return apiSend<PagamentoLista>(`/pagamentos/${id}/pagar`, "PATCH");
+}
+
+// Conexão da conta Mercado Pago da barbearia (OAuth marketplace) — só dono.
+export interface MercadoPagoStatus {
+  conectado: boolean;
+  mpUserId: string | null;
+}
+
+export function getMercadoPagoStatus(): Promise<MercadoPagoStatus> {
+  return apiGet<MercadoPagoStatus>("/pagamentos/mercadopago/status");
+}
+
+export function getMercadoPagoConexaoUrl(): Promise<{ url: string }> {
+  return apiGet<{ url: string }>("/pagamentos/mercadopago/conectar");
 }
 
 interface ConfigApi {

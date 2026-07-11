@@ -14,7 +14,8 @@ export const METODOS_PAGAMENTO: { value: MetodoPagamento; label: string }[] = (
   Object.keys(METODO_PAGAMENTO_LABEL) as MetodoPagamento[]
 ).map((m) => ({ value: m, label: METODO_PAGAMENTO_LABEL[m] }));
 
-// Dinheiro e cartão entram pelo balcão: a baixa é registrada à mão.
-// Pix (dinâmico ou fixo) é confirmado automaticamente pelo recebimento.
+// Dinheiro, cartão e Pix fixo (chave estática de balcão) entram pelo registro
+// manual — o dinheiro já caiu fora do sistema, então nascem pagos. Só o Pix
+// dinâmico é gerado como cobrança real e confirmado sozinho pelo webhook.
 export const exigeBaixaManual = (m: MetodoPagamento): boolean =>
-  m === "dinheiro" || m === "cartao_debito" || m === "cartao_credito";
+  m !== "pix_dinamico";

@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   validateSync,
 } from 'class-validator';
 
@@ -17,11 +18,26 @@ export class EnvVars {
 
   @IsString()
   @IsNotEmpty()
-  PSP_API_KEY!: string;
+  MERCADOPAGO_WEBHOOK_SECRET!: string;
 
+  // Credenciais OAuth da aplicação (marketplace). Sem elas, Pix cai no gateway mock.
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  PSP_WEBHOOK_SECRET!: string;
+  MERCADOPAGO_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  MERCADOPAGO_CLIENT_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  MERCADOPAGO_REDIRECT_URI?: string;
+
+  // Chave da cifra dos tokens OAuth no banco (AES-256-GCM): 64 chars hex = 32 bytes.
+  @Matches(/^[0-9a-fA-F]{64}$/, {
+    message: 'CIFRA_SEGREDO deve ter 64 caracteres hexadecimais (32 bytes).',
+  })
+  CIFRA_SEGREDO!: string;
 
   @IsOptional()
   @IsString()

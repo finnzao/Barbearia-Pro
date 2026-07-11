@@ -30,12 +30,28 @@ export class ConfigService {
     return parseDuration(this.refreshExpiresIn);
   }
 
-  get pspApiKey(): string {
-    return this.env.PSP_API_KEY;
+  get mercadoPagoWebhookSecret(): string {
+    return this.env.MERCADOPAGO_WEBHOOK_SECRET;
   }
 
-  get pspWebhookSecret(): string {
-    return this.env.PSP_WEBHOOK_SECRET;
+  get mpClientId(): string | undefined {
+    return this.env.MERCADOPAGO_CLIENT_ID;
+  }
+
+  get mpClientSecret(): string | undefined {
+    return this.env.MERCADOPAGO_CLIENT_SECRET;
+  }
+
+  get mpRedirectUri(): string | undefined {
+    return this.env.MERCADOPAGO_REDIRECT_URI;
+  }
+
+  get cifraSegredo(): string {
+    return this.env.CIFRA_SEGREDO;
+  }
+
+  get webOrigin(): string {
+    return process.env.WEB_ORIGIN ?? 'http://localhost:3000';
   }
 
   get producao(): boolean {

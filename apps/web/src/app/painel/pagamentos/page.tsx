@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Glyph } from "@/app/painel/glyphs";
 import { Avatar, Badge, Btn, Card, Money, Modal, Row, Seg, Select, brl, pct } from "@/app/painel/ui";
+import { MercadoPagoCard } from "@/app/painel/mercadopago-card";
 import {
   criarPagamento,
   criarRepasseApi,
@@ -74,8 +75,9 @@ const DIAS_SEMANA = [
 ];
 const DIAS_MES = Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
 
-// Recebimento manual de balcão só vale para dinheiro e cartão — o Pix (dinâmico
-// ou fixo) entra sozinho pela cobrança, então não aparece aqui.
+// Recebimento manual de balcão: dinheiro, cartão e Pix fixo (pago na chave da
+// barbearia, fora do sistema). O Pix dinâmico não aparece aqui — ele é gerado
+// como cobrança real em "Gerar Pix" e confirmado sozinho pelo webhook.
 const METODOS_RECEBIMENTO = METODOS_PAGAMENTO.filter((m) => exigeBaixaManual(m.value));
 
 const FORM_RECEBIMENTO_VAZIO = {
@@ -135,9 +137,10 @@ export default function Pagamentos() {
   const [historico, setHistorico] = useState<Repasse[]>([]);
   const [comissoes, setComissoes] = useState<ComissaoProfissional[]>([]);
 
-  // Registro manual de recebimento (dinheiro / cartão).
+  // Registro manual de recebimento (dinheiro / cartão / Pix fixo).
   const [novoAberto, setNovoAberto] = useState(false);
   const [formReceb, setFormReceb] = useState(FORM_RECEBIMENTO_VAZIO);
+  const [erroReceb, setErroReceb] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([getProfissionais(), getServicos(), getPagamentos()])
@@ -182,21 +185,27 @@ export default function Pagamentos() {
   const fecharRecebimento = () => {
     setNovoAberto(false);
     setFormReceb(FORM_RECEBIMENTO_VAZIO);
+    setErroReceb(null);
   };
 
   const registrarRecebimento = async () => {
     const servico = servs.find((s) => s.id === formReceb.servicoId);
     const prof = profs.find((p) => p.id === formReceb.profissionalId);
     if (!servico || !prof || formReceb.metodo === "") return;
-    const criado = await criarPagamento({
-      profissionalId: prof.id,
-      valorCentavos: servico.preco,
-      metodo: formReceb.metodo,
-      servicoNome: servico.nome,
-      servicoId: servico.id,
-    });
-    setPags((atual) => [mapPagamento(criado, profs), ...atual]);
-    fecharRecebimento();
+    try {
+      const criado = await criarPagamento({
+        profissionalId: prof.id,
+        valorCentavos: servico.preco,
+        metodo: formReceb.metodo,
+        servicoNome: servico.nome,
+        servicoId: servico.id,
+      });
+      setPags((atual) => [mapPagamento(criado, profs), ...atual]);
+      fecharRecebimento();
+    } catch (e) {
+      // ex.: Pix fixo com profissional sem marcador cadastrado (400 da API).
+      setErroReceb(e instanceof Error ? e.message : "Não foi possível registrar.");
+    }
   };
 
   const recebidosPagos = pags.filter((pg) => pg.status === "pago");
@@ -261,6 +270,8 @@ export default function Pagamentos() {
 
       {aba === "pagamentos" && (
         <>
+          <MercadoPagoCard />
+
           <div className="pn-sumstrip">
             <div className="pn-sum">
               <span className="pn-sum__lbl">Recebido hoje</span>
@@ -483,8 +494,8 @@ export default function Pagamentos() {
       >
         <div className="pn-stack">
           <p className="pn-note">
-            Registre aqui as entradas de balcão em dinheiro ou cartão. Pix dinâmico e Pix fixo entram sozinhos pela
-            cobrança — não precisam de registro manual.
+            Registre aqui as entradas de balcão: dinheiro, cartão ou Pix fixo (pago direto na chave da barbearia). O Pix
+            dinâmico não precisa — é gerado em &quot;Gerar Pix&quot; e confirma sozinho.
           </p>
           <Select
             label="Profissional"
@@ -502,8 +513,8 @@ export default function Pagamentos() {
           />
           <Select
             label="Forma de pagamento"
-            placeholder="Dinheiro ou cartão"
-            hint="O Pix não aparece aqui porque é confirmado automaticamente no recebimento."
+            placeholder="Dinheiro, cartão ou Pix fixo"
+            hint="Pix fixo = cliente pagou na chave da barbearia; o registro já entra como pago, com o marcador do profissional."
             options={METODOS_RECEBIMENTO}
             value={formReceb.metodo}
             onChange={(e) => setFormReceb({ ...formReceb, metodo: e.target.value as MetodoPagamento })}
@@ -514,6 +525,7 @@ export default function Pagamentos() {
               <Money value={servicoReceb.preco} size="lg" />
             </div>
           )}
+          {erroReceb && <p className="pn-note">{erroReceb}</p>}
         </div>
       </Modal>
     </div>

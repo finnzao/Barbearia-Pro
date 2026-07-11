@@ -7,6 +7,13 @@
       "runtimeArgs": ["--filter", "web", "dev"],
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@naregua/api", "dev"],
+      "port": 3333,
+      "autoPort": false
     }
   ]
 }

@@ -30,7 +30,7 @@ export const NAV: ItemNav[] = [
 ];
 
 export const SERVICOS: Servico[] = [
-  { key: "cobranca", href: "/painel/cobranca", label: "Gerar Pix", icon: "pix", resumo: "Cobrança na conta do salão; o split separa a parte de cada profissional.", acao: "Gerar cobrança", destaque: true },
+  { key: "cobranca", href: "/painel/cobranca", label: "Gerar Pix", icon: "pix", resumo: "Pix real na conta Mercado Pago da barbearia, com o marcador do profissional.", acao: "Gerar cobrança", destaque: true },
   { key: "agenda", href: "/painel/agenda", label: "Agenda", icon: "agenda", resumo: "Horários do dia e novos atendimentos.", acao: "Abrir agenda" },
   { key: "pagamentos", href: "/painel/pagamentos", label: "Pagamentos", icon: "pagamentos", resumo: "Recebimentos, comissões e repasse da equipe.", acao: "Ver pagamentos" },
   { key: "profissionais", href: "/painel/profissionais", label: "Profissionais", icon: "equipe", resumo: "Equipe, comissão e chave de repasse.", acao: "Gerenciar equipe" },

@@ -32,6 +32,11 @@ create table barbearia (
   pix_chave_central      text,
   pix_tipo_chave_central tipo_chave_pix,
   pix_nome_recebedor     text,
+  -- Conta Mercado Pago conectada via OAuth (marketplace); tokens cifrados (AES-256-GCM)
+  mp_user_id             text,
+  mp_access_token        text,
+  mp_refresh_token       text,
+  mp_token_expira_em     timestamptz,
   criado_em              timestamptz not null default now()
 );
 

@@ -220,8 +220,19 @@ Tenant-scoped. Leitura: autenticado. Escrita: `dono`, `recepcao`.
 - `GET /api/pagamentos/:id`
 - `POST /api/pagamentos` — `{ profissionalId, valorCentavos, metodo, comissaoPercent?, agendamentoId?, servicoId?, servicoNome? }` → `201`.
   - `comissaoPercent` omitido herda o do profissional.
-  - Métodos manuais (`dinheiro`, `cartao_debito`, `cartao_credito`) já nascem `pago` (recebimento manual); `pix_*` nasce `pendente`.
-- `PATCH /api/pagamentos/:id/pagar` — baixa manual (`pendente` → `pago`).
+  - Métodos manuais (`dinheiro`, `cartao_debito`, `cartao_credito`, `pix_estatico`) já nascem `pago` (recebimento manual — no Pix fixo o cliente pagou na chave estática da barbearia, fora do sistema); só `pix_dinamico` nasce `pendente` (confirmado pelo webhook).
+  - `pix_dinamico`/`pix_estatico` exigem que o profissional tenha `pixMarcador` cadastrado (RN-23) — sem isso, `400`. `pix_dinamico` gera `txid`/`copiaCola`/`expiraEm` de verdade via `PixGateway` (Mercado Pago, API Orders — `order.create`/`POST /v1/orders`; mock sem rede quando `MERCADOPAGO_CLIENT_SECRET` não está setado); `pix_estatico` usa a chave central fixa (sem gerar cobrança nova). Os dois criam um `SplitPagamento` com o marcador do profissional e o valor dividido pela comissão congelada.
+  - **Marketplace:** a cobrança é criada com o access token OAuth **da barbearia** (conta conectada) — o dinheiro cai direto na conta MP dela, nunca na da plataforma. Barbearia sem conta conectada → `400` ("Barbearia não conectou a conta Mercado Pago.").
+- `PATCH /api/pagamentos/:id/pagar` — baixa manual (`pendente` → `pago`); segue disponível mesmo com webhook.
+- `POST /api/pagamentos/webhook/mercadopago` — rota pública (`@Public()`, sem JWT). Notificação da **API Orders** do Mercado Pago (`type: "order"`, `data.id` = id da order). Valida a assinatura (`x-signature`/`x-request-id` contra `MERCADOPAGO_WEBHOOK_SECRET`, `WebhookSignatureValidator` do SDK) — assinatura inválida → `401`. Acha o `Pagamento` pelo `txid` (= id da order) sem escopo de tenant (o webhook não carrega `barbeariaId`), confirma o status de verdade via `order.get` **com o token da barbearia dona** (nunca confia no corpo da notificação) e só marca `pago` se `status === 'processed'`; do contrário não faz nada. Idempotente (reenvio da mesma notificação é no-op). `txid` desconhecido (não é nosso) ou evento de outro tipo → `200` sem efeito.
+
+#### Conexão Mercado Pago (OAuth marketplace) — `/api/pagamentos/mercadopago`
+
+Cada barbearia conecta a **própria** conta Mercado Pago; os tokens ficam cifrados (AES-256-GCM, `CIFRA_SEGREDO`) em `barbearia.mp_access_token`/`mp_refresh_token`, com renovação automática quando estão a menos de 1 dia de vencer.
+
+- `GET /api/pagamentos/mercadopago/conectar` — só `dono`. → `{ url }` da autorização no Mercado Pago (com `state` assinado por HMAC, TTL 10 min — amarra o callback à barbearia e impede CSRF).
+- `GET /api/pagamentos/mercadopago/callback?code=&state=` — rota pública (o MP redireciona o navegador do dono pra cá). Troca o `code` pelos tokens, salva cifrado e redireciona pro painel (`?mp=conectado` ou `?mp=erro`).
+- `GET /api/pagamentos/mercadopago/status` — só `dono`. → `{ conectado, mpUserId }`.
 
 ### Comissões — `/api/comissoes`
 

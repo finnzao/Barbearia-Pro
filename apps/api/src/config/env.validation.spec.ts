@@ -3,8 +3,8 @@ import { validateEnv } from './env.validation';
 const completo = {
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/db?schema=public',
   JWT_SECRET: 'segredo',
-  PSP_API_KEY: 'chave',
-  PSP_WEBHOOK_SECRET: 'webhook',
+  MERCADOPAGO_WEBHOOK_SECRET: 'webhook',
+  CIFRA_SEGREDO: 'a'.repeat(64),
 };
 
 function semChave(chave: keyof typeof completo): Record<string, string> {
@@ -17,7 +17,9 @@ describe('validateEnv', () => {
   it('aceita ambiente completo', () => {
     const env = validateEnv(completo);
     expect(env.DATABASE_URL).toBe(completo.DATABASE_URL);
-    expect(env.PSP_API_KEY).toBe(completo.PSP_API_KEY);
+    expect(env.MERCADOPAGO_WEBHOOK_SECRET).toBe(
+      completo.MERCADOPAGO_WEBHOOK_SECRET,
+    );
   });
 
   it('falha quando DATABASE_URL está ausente', () => {
@@ -29,8 +31,19 @@ describe('validateEnv', () => {
   });
 
   it('falha quando uma variável obrigatória está vazia', () => {
-    expect(() => validateEnv({ ...completo, PSP_API_KEY: '' })).toThrow(
-      /PSP_API_KEY/,
+    expect(() =>
+      validateEnv({ ...completo, MERCADOPAGO_WEBHOOK_SECRET: '' }),
+    ).toThrow(/MERCADOPAGO_WEBHOOK_SECRET/);
+  });
+
+  it('aceita ambiente sem credenciais OAuth do MP (cai no gateway mock)', () => {
+    const env = validateEnv(completo);
+    expect(env.MERCADOPAGO_CLIENT_SECRET).toBeUndefined();
+  });
+
+  it('rejeita CIFRA_SEGREDO que não seja 64 hex', () => {
+    expect(() => validateEnv({ ...completo, CIFRA_SEGREDO: 'curta' })).toThrow(
+      /CIFRA_SEGREDO/,
     );
   });
 });

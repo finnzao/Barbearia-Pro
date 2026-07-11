@@ -132,3 +132,13 @@ export function useHash(): string {
     () => "",
   );
 }
+
+// Lê um query param uma vez na hidratação (SSR devolve null). O valor fica
+// congelado no primeiro snapshot — bom pra avisos de redirect (?mp=conectado).
+export function useQueryParam(nome: string): string | null {
+  return useSyncExternalStore(
+    () => () => {},
+    () => new URLSearchParams(window.location.search).get(nome),
+    () => null,
+  );
+}
