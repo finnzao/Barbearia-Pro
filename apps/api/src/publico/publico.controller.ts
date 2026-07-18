@@ -17,7 +17,10 @@ import {
   LoginSenhaDto,
   SolicitarOtpDto,
 } from './dto/cliente-auth.dto';
-import { HorariosQueryDto } from './dto/horarios-query.dto';
+import {
+  HorariosQueryDto,
+  ProfissionaisQueryDto,
+} from './dto/horarios-query.dto';
 import { PublicoService } from './publico.service';
 
 @Public()
@@ -40,8 +43,11 @@ export class PublicoController {
   }
 
   @Get(':slug/profissionais')
-  profissionais(@Param('slug') slug: string) {
-    return this.publico.profissionais(slug);
+  profissionais(
+    @Param('slug') slug: string,
+    @Query() query: ProfissionaisQueryDto,
+  ) {
+    return this.publico.profissionais(slug, query.servicoId);
   }
 
   @Get(':slug/horarios')

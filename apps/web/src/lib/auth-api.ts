@@ -6,6 +6,7 @@ export type Papel = "dono" | "profissional" | "recepcao";
 export interface UsuarioAuth {
   id: string;
   barbeariaId: string;
+  barbeariaSlug: string | null;
   papel: Papel;
   profissionalId: string | null;
 }

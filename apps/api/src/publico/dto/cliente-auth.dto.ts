@@ -6,20 +6,21 @@ import {
   MinLength,
 } from 'class-validator';
 import { SENHA_FORTE, SENHA_FORTE_MSG } from '../../common/senha';
-
-const WHATSAPP = /^\+?[0-9]{8,15}$/;
+import {
+  NormalizarTelefone,
+  TELEFONE_BR,
+  TELEFONE_MSG,
+} from '../../common/telefone';
 
 export class SolicitarOtpDto {
-  @Matches(WHATSAPP, {
-    message: 'whatsapp deve conter apenas dígitos (8 a 15)',
-  })
+  @NormalizarTelefone()
+  @Matches(TELEFONE_BR, { message: TELEFONE_MSG })
   whatsapp!: string;
 }
 
 export class LoginOtpDto {
-  @Matches(WHATSAPP, {
-    message: 'whatsapp deve conter apenas dígitos (8 a 15)',
-  })
+  @NormalizarTelefone()
+  @Matches(TELEFONE_BR, { message: TELEFONE_MSG })
   whatsapp!: string;
 
   @Matches(/^\d{6}$/, { message: 'codigo deve ter 6 dígitos' })
@@ -27,9 +28,8 @@ export class LoginOtpDto {
 }
 
 export class LoginSenhaDto {
-  @Matches(WHATSAPP, {
-    message: 'whatsapp deve conter apenas dígitos (8 a 15)',
-  })
+  @NormalizarTelefone()
+  @Matches(TELEFONE_BR, { message: TELEFONE_MSG })
   whatsapp!: string;
 
   @IsString()

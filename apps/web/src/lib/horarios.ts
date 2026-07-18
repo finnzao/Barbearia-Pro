@@ -4,6 +4,10 @@ export interface HorarioDia {
   aberto: boolean;
   abre: string; // "HH:MM"
   fecha: string;
+  // Pausa recorrente (almoço). Só vale com temPausa ligado.
+  temPausa: boolean;
+  pausaInicio: string;
+  pausaFim: string;
 }
 
 export type HorarioSemana = Record<DiaSemana, HorarioDia>;
@@ -19,11 +23,23 @@ export const DIAS: { id: DiaSemana; nome: string }[] = [
   { id: 0, nome: "Domingo" },
 ];
 
-const aberto = (abre: string, fecha: string): HorarioDia => ({ aberto: true, abre, fecha });
-const fechado: HorarioDia = { aberto: false, abre: "09:00", fecha: "18:00" };
+const SEM_PAUSA = { temPausa: false, pausaInicio: "12:00", pausaFim: "13:00" };
+
+const aberto = (abre: string, fecha: string): HorarioDia => ({
+  aberto: true,
+  abre,
+  fecha,
+  ...SEM_PAUSA,
+});
+export const DIA_FECHADO: HorarioDia = {
+  aberto: false,
+  abre: "09:00",
+  fecha: "18:00",
+  ...SEM_PAUSA,
+};
 
 export const HORARIO_PADRAO: HorarioSemana = {
-  0: fechado,
+  0: DIA_FECHADO,
   1: aberto("09:00", "19:00"),
   2: aberto("09:00", "19:00"),
   3: aberto("09:00", "19:00"),
@@ -31,23 +47,3 @@ export const HORARIO_PADRAO: HorarioSemana = {
   5: aberto("09:00", "20:00"),
   6: aberto("09:00", "18:00"),
 };
-
-// Persistência provisória no navegador, igual a settings.ts. Quando a API
-// existir, vira GET/PUT em horario_funcionamento.
-const CHAVE = "naregua:horario-funcionamento";
-
-export function lerHorario(): HorarioSemana {
-  if (typeof window === "undefined") return HORARIO_PADRAO;
-  try {
-    const cru = window.localStorage.getItem(CHAVE);
-    if (!cru) return HORARIO_PADRAO;
-    return { ...HORARIO_PADRAO, ...JSON.parse(cru) };
-  } catch {
-    return HORARIO_PADRAO;
-  }
-}
-
-export function salvarHorario(horario: HorarioSemana): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(CHAVE, JSON.stringify(horario));
-}

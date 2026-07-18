@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Menor privilégio: o GITHUB_TOKEN só lê o repo.
+permissions:
+  contents: read
+
 jobs:
   api:
     runs-on: ubuntu-latest
@@ -41,6 +45,9 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Audit de dependências (prod, falha em high+)
+        run: pnpm --filter @naregua/api audit --prod --audit-level high
 
       - name: Lint
         run: pnpm --filter @naregua/api lint

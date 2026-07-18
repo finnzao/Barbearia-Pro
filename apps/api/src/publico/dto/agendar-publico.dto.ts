@@ -6,10 +6,19 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import {
+  NormalizarTelefone,
+  TELEFONE_BR,
+  TELEFONE_MSG,
+} from '../../common/telefone';
 
 export class AgendarPublicoDto {
+  // Opcional: com `clienteEscolheServico` desligado o cliente só reserva o
+  // horário e a barbearia define o serviço no balcão. O service exige quando
+  // a config manda escolher.
+  @IsOptional()
   @IsUUID()
-  servicoId!: string;
+  servicoId?: string;
 
   @IsOptional()
   @IsUUID()
@@ -26,8 +35,7 @@ export class AgendarPublicoDto {
   @MaxLength(120)
   nome!: string;
 
-  @Matches(/^\+?[0-9]{8,15}$/, {
-    message: 'whatsapp deve conter apenas dígitos (8 a 15)',
-  })
+  @NormalizarTelefone()
+  @Matches(TELEFONE_BR, { message: TELEFONE_MSG })
   whatsapp!: string;
 }

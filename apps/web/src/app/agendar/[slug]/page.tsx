@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button, Input } from "@/ds/components";
 import { formatBRL } from "@/lib/money";
+import { normalizarTelefone, PAIS_PADRAO, telefoneValido } from "@/lib/telefone";
 import {
   agendarPublico,
   ApiError,
@@ -20,8 +21,13 @@ import "./publico.css";
 
 type Passo = "servico" | "profissional" | "horario" | "dados" | "sucesso";
 
-function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
+// "Hoje" tem de ser no fuso da BARBEARIA, não em UTC: às 21h de São Paulo o UTC
+// já virou o dia e a tela pulava para amanhã, escondendo as vagas da noite.
+// en-CA formata como YYYY-MM-DD, que é o formato do <input type="date">.
+// Sem fuso, o Intl usa o do navegador — certo para o cliente local e nunca pior
+// que UTC; assim que o resumo chega, a data é recalculada no fuso real.
+function hojeNoFuso(fuso?: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: fuso }).format(new Date());
 }
 
 export default function AgendarPublico() {
@@ -35,8 +41,9 @@ export default function AgendarPublico() {
   const [passo, setPasso] = useState<Passo>("servico");
   const [servicoId, setServicoId] = useState<string>("");
   const [profissionalId, setProfissionalId] = useState<string | undefined>();
-  const [data, setData] = useState<string>(hojeISO);
+  const [data, setData] = useState<string>(() => hojeNoFuso());
   const [horarios, setHorarios] = useState<{ hora: string }[]>([]);
+  const [erroHorarios, setErroHorarios] = useState(false);
   const [hora, setHora] = useState<string>("");
   const [nome, setNome] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -46,31 +53,41 @@ export default function AgendarPublico() {
   useEffect(() => {
     if (!slug) return;
     getResumo(slug)
-      .then((b) => {
+      .then(async (b) => {
         setBarbearia(b);
-        return Promise.all([
+        setData(hojeNoFuso(b.fuso)); // agora o fuso da barbearia é conhecido
+        const [s, p] = await Promise.all([
           getServicosPublico(slug),
           getProfissionaisPublico(slug),
         ]);
-      })
-      .then(([s, p]) => {
         setServicos(s);
         setProfissionais(p);
+        // Barbearia define o serviço no balcão: o cliente entra direto na
+        // escolha de profissional (ou de horário).
+        if (!b.clienteEscolheServico) {
+          setPasso(b.clienteEscolheProfissional && p.length > 0 ? "profissional" : "horario");
+        }
       })
       .catch(() => setErroGeral("Barbearia não encontrada."));
   }, [slug]);
 
   useEffect(() => {
-    if (passo !== "horario" || !servicoId) return;
+    // servicoId vazio é válido quando a barbearia define o serviço no balcão.
+    if (passo !== "horario") return;
     let ativo = true;
-    getHorariosPublico(slug, data, servicoId, profissionalId)
+    getHorariosPublico(slug, data, servicoId || undefined, profissionalId)
       .then((hs) => {
         if (!ativo) return;
         setHorarios(hs);
+        setErroHorarios(false);
         setHora(""); // limpa a seleção anterior quando os novos horários chegam
       })
       .catch(() => {
-        if (ativo) setHorarios([]);
+        if (!ativo) return;
+        // Falha ao carregar não é "dia lotado": dizer que não há vaga afastaria
+        // o cliente por um erro nosso.
+        setHorarios([]);
+        setErroHorarios(true);
       });
     return () => {
       ativo = false;
@@ -79,14 +96,19 @@ export default function AgendarPublico() {
 
   const servico = servicos.find((s) => s.id === servicoId);
 
-  function escolherServico(id: string) {
+  async function escolherServico(id: string) {
     setServicoId(id);
-    if (barbearia?.clienteEscolheProfissional && profissionais.length > 0) {
-      setPasso("profissional");
-    } else {
-      setProfissionalId(undefined);
+    setProfissionalId(undefined);
+    if (!barbearia?.clienteEscolheProfissional) {
       setPasso("horario");
+      return;
     }
+    // Recarrega já filtrado: nem todo profissional faz todo serviço.
+    const elegiveis = await getProfissionaisPublico(slug, id).catch(
+      () => [] as ProfissionalPublico[],
+    );
+    setProfissionais(elegiveis);
+    setPasso(elegiveis.length > 0 ? "profissional" : "horario");
   }
 
   function escolherProfissional(id?: string) {
@@ -95,19 +117,19 @@ export default function AgendarPublico() {
   }
 
   const podeConfirmar =
-    nome.trim().length >= 2 && /^\+?[0-9]{8,15}$/.test(whatsapp.trim());
+    nome.trim().length >= 2 && telefoneValido(whatsapp);
 
   async function confirmar() {
     setErro(null);
     setEnviando(true);
     try {
       await agendarPublico(slug, {
-        servicoId,
+        servicoId: servicoId || undefined,
         profissionalId,
         data,
         hora,
         nome: nome.trim(),
-        whatsapp: whatsapp.trim(),
+        whatsapp: normalizarTelefone(whatsapp),
       });
       setPasso("sucesso");
     } catch (e) {
@@ -129,7 +151,17 @@ export default function AgendarPublico() {
     );
   }
 
-  const ordemPassos: Passo[] = ["servico", "profissional", "horario", "dados"];
+  // A barra só mostra os passos que este cliente realmente percorre.
+  const ordemPassos: Passo[] = [
+    ...(barbearia?.clienteEscolheServico === false
+      ? []
+      : (["servico"] as Passo[])),
+    ...(barbearia?.clienteEscolheProfissional && profissionais.length > 0
+      ? (["profissional"] as Passo[])
+      : []),
+    "horario",
+    "dados",
+  ];
   const indiceAtual = ordemPassos.indexOf(passo);
 
   return (
@@ -205,11 +237,15 @@ export default function AgendarPublico() {
             <Input
               type="date"
               value={data}
-              min={hojeISO()}
+              min={hojeNoFuso(barbearia?.fuso)}
               onChange={(e) => setData(e.target.value)}
               aria-label="Data"
             />
-            {horarios.length === 0 ? (
+            {erroHorarios ? (
+              <p className="pb-erro">
+                Não foi possível carregar os horários. Tente de novo.
+              </p>
+            ) : horarios.length === 0 ? (
               <p className="pb-vazio">Sem horários livres neste dia.</p>
             ) : (
               <div className="pb-horarios">
@@ -240,11 +276,11 @@ export default function AgendarPublico() {
         {passo === "dados" && (
           <div className="pb-secao">
             <h2 className="pb-secao__titulo">Seus dados</h2>
-            {servico && (
-              <p className="pb-opcao__meta">
-                {servico.nome} · {data} às {hora} · {formatBRL(servico.precoCentavos)}
-              </p>
-            )}
+            <p className="pb-opcao__meta">
+              {servico
+                ? `${servico.nome} · ${data} às ${hora} · ${formatBRL(servico.precoCentavos)}`
+                : `${data} às ${hora} · serviço e valor definidos na barbearia`}
+            </p>
             {erro && <div className="pb-erro">{erro}</div>}
             <Input
               label="Nome"
@@ -255,9 +291,12 @@ export default function AgendarPublico() {
             />
             <Input
               label="WhatsApp"
+              type="tel"
+              inputMode="tel"
+              prefix={`${PAIS_PADRAO.flag} ${PAIS_PADRAO.ddi}`}
               value={whatsapp}
               onChange={(e) => setWhatsapp(e.target.value)}
-              placeholder="11999990000"
+              placeholder="(11) 98765-4321"
               required
             />
             <Button
@@ -277,7 +316,8 @@ export default function AgendarPublico() {
               <span className="pb-sucesso__check">✓</span>
               <h2 className="pb-secao__titulo">Agendamento solicitado!</h2>
               <p className="pb-opcao__meta">
-                {servico?.nome} · {data} às {hora}. A barbearia vai confirmar.
+                {servico ? `${servico.nome} · ` : ""}
+                {data} às {hora}. A barbearia vai confirmar pelo WhatsApp.
               </p>
             </div>
             <p className="pb-link">

@@ -11,9 +11,17 @@ const pixGatewayProvider = {
   // Com as credenciais OAuth da aplicação configuradas, cobra de verdade no
   // Mercado Pago (com o token de cada barbearia); senão, mock (dev/testes).
   useFactory: (config: ConfigService) => {
-    return config.mpClientSecret
-      ? new PixGatewayMercadoPago()
-      : new PixGatewayMock();
+    if (config.mpClientSecret) {
+      return new PixGatewayMercadoPago();
+    }
+    // Em produção o mock (foiPago()→true) confirmaria pagamento sem PSP —
+    // barra no boot em vez de aceitar dinheiro que não entrou.
+    if (config.producao) {
+      throw new Error(
+        'MERCADOPAGO_CLIENT_SECRET ausente em produção: o gateway Pix real é obrigatório.',
+      );
+    }
+    return new PixGatewayMock();
   },
   inject: [ConfigService],
 };

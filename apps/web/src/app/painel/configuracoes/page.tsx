@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, Card, Switch } from "@/ds/components";
 import { Icon } from "@/ds/icons";
+import { Bloqueios } from "@/components/bloqueios";
 import { HorarioFuncionamento } from "@/components/horario-funcionamento";
 import { getConfigAgendamento, salvarConfigAgendamento } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { CONFIG_PADRAO, type ConfigAgendamento } from "@/lib/settings";
 
 function Opcao({
@@ -33,6 +35,8 @@ function Opcao({
 export default function Configuracoes() {
   const [cfg, setCfg] = useState<ConfigAgendamento>(CONFIG_PADRAO);
   const [salvo, setSalvo] = useState(false);
+  const { usuario } = useAuth();
+  const slug = usuario?.barbeariaSlug ?? null;
 
   useEffect(() => {
     getConfigAgendamento()
@@ -49,11 +53,6 @@ export default function Configuracoes() {
     await salvarConfigAgendamento(cfg);
     setSalvo(true);
   };
-
-  // Reaproveita a config para abrir o fluxo do cliente já no modo escolhido.
-  const previewHref =
-    `/agendar?profissional=${cfg.clienteEscolheProfissional ? 1 : 0}` +
-    `&servico=${cfg.clienteEscolheServico ? 1 : 0}`;
 
   return (
     <div className="stack">
@@ -97,19 +96,26 @@ export default function Configuracoes() {
       <Card title="Link do cliente">
         <div className="stack-sm">
           <p className="muted">
-            Veja exatamente o que o cliente encontra ao abrir o link, já no modo configurado acima.
+            Este é o link de agendamento da sua barbearia. Compartilhe no WhatsApp, na
+            bio do Instagram ou onde seus clientes estiverem.
           </p>
-          <div className="row-between">
-            <span className="muted">Abre o fluxo de agendamento em uma nova aba.</span>
-            <Link
-              href={previewHref}
-              target="_blank"
-              className="nr-btn nr-btn--secondary nr-btn--sm"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-            >
-              <Icon name="arrowRight" size={15} /> Pré-visualizar fluxo
-            </Link>
-          </div>
+          {slug ? (
+            <div className="row-between">
+              <code style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
+                /agendar/{slug}
+              </code>
+              <Link
+                href={`/agendar/${slug}`}
+                target="_blank"
+                className="nr-btn nr-btn--secondary nr-btn--sm"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                <Icon name="arrowRight" size={15} /> Abrir link
+              </Link>
+            </div>
+          ) : (
+            <p className="muted">Entre novamente para carregar o link.</p>
+          )}
         </div>
       </Card>
 
@@ -117,6 +123,16 @@ export default function Configuracoes() {
         <div className="stack-sm">
           <p className="muted">Defina os dias e faixas de atendimento. Dia desligado fica fechado para agendamento.</p>
           <HorarioFuncionamento />
+        </div>
+      </Card>
+
+      <Card title="Férias, folgas e bloqueios">
+        <div className="stack-sm">
+          <p className="muted">
+            Períodos em que ninguém pode ser agendado. Some ao horário de
+            funcionamento: o cliente deixa de ver esses horários no link.
+          </p>
+          <Bloqueios />
         </div>
       </Card>
     </div>

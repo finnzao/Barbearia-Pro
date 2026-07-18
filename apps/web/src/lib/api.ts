@@ -1,4 +1,4 @@
-import type { DiaSemana, HorarioSemana } from "./horarios";
+import { DIA_FECHADO, type DiaSemana, type HorarioSemana } from "./horarios";
 import type { ConfigAgendamento } from "./settings";
 import type { AnaliseSemana } from "./mock-data";
 import type { OrigemRepasse, Repasse, StatusRepasse } from "./repasse";
@@ -155,6 +155,8 @@ interface ServicoApi {
   nome: string;
   duracaoMin: number;
   precoCentavos: number;
+  ativo: boolean;
+  profissionais?: { profissionalId: string }[];
 }
 interface ProfissionalApi {
   id: string;
@@ -174,6 +176,7 @@ interface AgendamentoApi {
   status: Agendamento["status"];
   profissional?: { apelido: string } | null;
   servico?: { nome: string } | null;
+  cliente?: { whatsapp: string } | null;
 }
 
 export interface AgendamentoMes {
@@ -181,6 +184,7 @@ export interface AgendamentoMes {
   inicio: string;
   status: Agendamento["status"];
   clienteNome: string;
+  clienteWhatsapp: string | null;
   precoCentavos: number;
   profissionalId: string;
   profissional: string;
@@ -220,7 +224,35 @@ export async function getServicos(): Promise<Servico[]> {
     nome: s.nome,
     duracaoMin: s.duracaoMin,
     preco: s.precoCentavos,
+    ativo: s.ativo,
+    // Vazio = qualquer profissional atende (regra do agendamento público).
+    profissionalIds: (s.profissionais ?? []).map((p) => p.profissionalId),
   }));
+}
+
+export async function definirProfissionaisDoServico(
+  servicoId: string,
+  profissionalIds: string[],
+): Promise<void> {
+  await apiSend(`/servicos/${servicoId}/profissionais`, "PUT", {
+    profissionalIds,
+  });
+}
+
+export async function atualizarServico(
+  id: string,
+  dados: {
+    nome?: string;
+    duracaoMin?: number;
+    precoCentavos?: number;
+    ativo?: boolean;
+  },
+): Promise<void> {
+  await apiSend(`/servicos/${id}`, "PATCH", dados);
+}
+
+export async function removerServico(id: string): Promise<void> {
+  await apiSend(`/servicos/${id}`, "DELETE");
 }
 
 export async function criarServico(dados: {
@@ -407,6 +439,7 @@ export async function getAgendamentosPeriodo(
     inicio: a.inicio,
     status: a.status,
     clienteNome: a.clienteNome ?? "",
+    clienteWhatsapp: a.cliente?.whatsapp ?? null,
     precoCentavos: a.precoCentavos ?? 0,
     profissionalId: a.profissionalId ?? "",
     profissional: a.profissional?.apelido ?? "",
@@ -424,6 +457,41 @@ export async function criarAgendamento(dados: {
   status?: Agendamento["status"];
 }): Promise<void> {
   await apiSend("/agendamentos", "POST", dados);
+}
+
+// Mudar o status dispara a notificação certa na API (aprovado => "confirmado"
+// no WhatsApp do cliente; cancelado => aviso de cancelamento).
+export async function atualizarStatusAgendamento(
+  id: string,
+  status: Agendamento["status"],
+): Promise<void> {
+  await apiSend(`/agendamentos/${id}`, "PATCH", { status });
+}
+
+export interface Bloqueio {
+  id: string;
+  profissionalId: string | null;
+  inicio: string;
+  fim: string;
+  motivo: string | null;
+  profissional: { apelido: string } | null;
+}
+
+export function getBloqueios(): Promise<Bloqueio[]> {
+  return apiFetch("/bloqueios");
+}
+
+export async function criarBloqueio(dados: {
+  profissionalId?: string;
+  inicio: string;
+  fim: string;
+  motivo?: string;
+}): Promise<void> {
+  await apiSend("/bloqueios", "POST", dados);
+}
+
+export async function removerBloqueio(id: string): Promise<void> {
+  await apiSend(`/bloqueios/${id}`, "DELETE");
 }
 
 export async function getComissoes(params?: {
@@ -585,6 +653,8 @@ interface HorarioApi {
   diaSemana: number;
   abre: string;
   fecha: string;
+  pausaInicio: string | null;
+  pausaFim: string | null;
 }
 
 const DIAS_SEMANA: DiaSemana[] = [0, 1, 2, 3, 4, 5, 6];
@@ -592,13 +662,21 @@ const DIAS_SEMANA: DiaSemana[] = [0, 1, 2, 3, 4, 5, 6];
 export async function getHorarios(): Promise<HorarioSemana> {
   const linhas = await apiGet<HorarioApi[]>("/config/horarios");
   const base = Object.fromEntries(
-    DIAS_SEMANA.map((d) => [d, { aberto: false, abre: "09:00", fecha: "18:00" }]),
+    DIAS_SEMANA.map((d) => [d, { ...DIA_FECHADO }]),
   ) as HorarioSemana;
   for (const linha of linhas) {
+    const temPausa = !!(linha.pausaInicio && linha.pausaFim);
     base[linha.diaSemana as DiaSemana] = {
       aberto: true,
       abre: linha.abre.slice(11, 16),
       fecha: linha.fecha.slice(11, 16),
+      temPausa,
+      // Sem pausa salva, mantém o padrão no formulário para o toggle já abrir
+      // preenchido em vez de vazio.
+      pausaInicio: temPausa
+        ? linha.pausaInicio!.slice(11, 16)
+        : DIA_FECHADO.pausaInicio,
+      pausaFim: temPausa ? linha.pausaFim!.slice(11, 16) : DIA_FECHADO.pausaFim,
     };
   }
   return base;
@@ -609,6 +687,9 @@ export async function salvarHorarios(horario: HorarioSemana): Promise<void> {
     diaSemana: d,
     abre: horario[d].abre,
     fecha: horario[d].fecha,
+    ...(horario[d].temPausa
+      ? { pausaInicio: horario[d].pausaInicio, pausaFim: horario[d].pausaFim }
+      : {}),
   }));
   await apiSend("/config/horarios", "PUT", { horarios });
 }
@@ -624,6 +705,11 @@ export function intervaloPeriodo(periodo: Periodo): { de: string; ate: string } 
     const inicio = new Date(hoje);
     inicio.setDate(hoje.getDate() - 6);
     return { de: iso(inicio), ate: iso(hoje) };
+  }
+  if (periodo === "ano") {
+    const primeiro = new Date(hoje.getFullYear(), 0, 1);
+    const ultimo = new Date(hoje.getFullYear(), 11, 31);
+    return { de: iso(primeiro), ate: iso(ultimo) };
   }
   const primeiro = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   const ultimo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);

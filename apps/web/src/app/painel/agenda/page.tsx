@@ -6,6 +6,7 @@ import { Icon } from "@/ds/icons";
 import { useHoje } from "@/lib/client-hooks";
 import { GRADE_DIA } from "@/lib/mock-data";
 import {
+  atualizarStatusAgendamento,
   criarAgendamento,
   getAgendamentosPeriodo,
   getProfissionais,
@@ -13,6 +14,7 @@ import {
   type AgendamentoMes,
 } from "@/lib/api";
 import { METODO_PAGAMENTO_LABEL, METODOS_PAGAMENTO } from "@/lib/pagamento";
+import { formatarTelefone, soDigitos } from "@/lib/telefone";
 import type {
   Agendamento,
   MetodoPagamento,
@@ -71,6 +73,7 @@ function paraAgendamento(a: AgendamentoMes): Agendamento {
     id: a.id,
     hora: horaLocal(a.inicio),
     cliente: a.clienteNome,
+    clienteWhatsapp: a.clienteWhatsapp,
     servico: a.servico,
     profissionalId: a.profissionalId,
     profissional: a.profissional,
@@ -99,6 +102,8 @@ export default function Agenda() {
   const [servs, setServs] = useState<Servico[]>([]);
   const [aberto, setAberto] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
+  const [detalhe, setDetalhe] = useState<Agendamento | null>(null);
+  const [respondendo, setRespondendo] = useState(false);
 
   useEffect(() => {
     getProfissionais().then(setProfs).catch(() => {});
@@ -185,6 +190,24 @@ export default function Agenda() {
       let d = 1;
       while (new Date(a, m, d).getDay() === 0) d += 1; // pula domingo (fechado)
       setDia(d);
+    }
+  };
+
+  // Pedido veio pelo link do cliente e nasce pendente: aqui a barbearia aceita
+  // ou recusa, e a API avisa o cliente no WhatsApp.
+  const responderPedido = async (
+    id: string,
+    status: Extract<StatusAgendamento, "confirmado" | "cancelado">,
+  ) => {
+    setRespondendo(true);
+    try {
+      await atualizarStatusAgendamento(id, status);
+      setAgsMes(await buscarMes());
+      setDetalhe(null);
+    } catch {
+      /* falhou: mantém o modal aberto para nova tentativa */
+    } finally {
+      setRespondendo(false);
     }
   };
 
@@ -360,6 +383,7 @@ export default function Agenda() {
                         <Badge status={a.status} size="sm" />
                       </>
                     }
+                    onClick={() => setDetalhe(a)}
                     divided
                   />
                 ))}
@@ -403,6 +427,63 @@ export default function Agenda() {
           </Card>
         </>
       )}
+
+      <Modal
+        open={detalhe !== null}
+        onClose={() => setDetalhe(null)}
+        title={detalhe?.cliente ?? ""}
+        footer={
+          detalhe?.status === "pendente" ? (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={respondendo}
+                onClick={() => responderPedido(detalhe.id, "cancelado")}
+              >
+                Recusar
+              </Button>
+              <Button
+                variant="accent"
+                size="sm"
+                disabled={respondendo}
+                iconLeft={<Icon name="check" size={16} />}
+                onClick={() => responderPedido(detalhe.id, "confirmado")}
+              >
+                Confirmar
+              </Button>
+            </>
+          ) : undefined
+        }
+      >
+        {detalhe && (
+          <div className="stack">
+            <p className="muted">
+              {detalhe.hora} · {detalhe.servico} · {detalhe.profissional}
+            </p>
+            {detalhe.status === "pendente" && (
+              <p className="muted">
+                Pedido feito pelo link do cliente. Ao confirmar, ele recebe o
+                aviso no WhatsApp.
+              </p>
+            )}
+            {detalhe.clienteWhatsapp ? (
+              <a
+                className="row-between"
+                href={`https://wa.me/${soDigitos(detalhe.clienteWhatsapp)}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ textDecoration: "none", gap: "var(--sp-2)" }}
+              >
+                <span>{formatarTelefone(detalhe.clienteWhatsapp)}</span>
+                <Icon name="phone" size={18} />
+              </a>
+            ) : (
+              <p className="muted">Sem telefone cadastrado (cliente de balcão).</p>
+            )}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={aberto}

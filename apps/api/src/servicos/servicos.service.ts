@@ -12,7 +12,42 @@ export class ServicosService {
   ) {}
 
   listar() {
-    return this.prisma.db.servico.findMany({ orderBy: { nome: 'asc' } });
+    return this.prisma.db.servico.findMany({
+      orderBy: { nome: 'asc' },
+      include: { profissionais: { select: { profissionalId: true } } },
+    });
+  }
+
+  // Quem executa este serviço. Lista vazia = todos — é assim que o agendamento
+  // público lê a ausência de mapeamento, e evita zerar a agenda de quem nunca
+  // preencheu essa relação. Substitui o conjunto inteiro.
+  async definirProfissionais(id: string, profissionalIds: string[]) {
+    // ProfissionalServico não tem barbearia_id, então fica FORA do escopo de
+    // tenant do prisma.db: as duas pontas precisam ser validadas aqui. buscar()
+    // e o count() abaixo usam modelos escopados — é o que barra id alheio.
+    await this.buscar(id);
+
+    if (profissionalIds.length > 0) {
+      const validos = await this.prisma.db.profissional.count({
+        where: { id: { in: profissionalIds } },
+      });
+      if (validos !== profissionalIds.length) {
+        throw new NotFoundException('Profissional não encontrado.');
+      }
+    }
+
+    await this.prisma.db.profissionalServico.deleteMany({
+      where: { servicoId: id },
+    });
+    if (profissionalIds.length > 0) {
+      await this.prisma.db.profissionalServico.createMany({
+        data: profissionalIds.map((profissionalId) => ({
+          profissionalId,
+          servicoId: id,
+        })),
+      });
+    }
+    return this.buscar(id);
   }
 
   async buscar(id: string) {

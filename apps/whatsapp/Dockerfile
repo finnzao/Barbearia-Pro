@@ -14,4 +14,8 @@ COPY src ./src
 ENV AUTH_DIR=/data/auth
 EXPOSE 4000
 
+# Não roda como root: cria /data e passa o processo pro usuário node (uid 1000).
+RUN mkdir -p /data/auth && chown -R node:node /app /data
+USER node
+
 CMD ["node", "src/index.js"]

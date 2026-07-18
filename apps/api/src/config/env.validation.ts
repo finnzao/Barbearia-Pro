@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   Matches,
+  MinLength,
   validateSync,
 } from 'class-validator';
 
@@ -12,12 +13,16 @@ export class EnvVars {
   @IsNotEmpty()
   DATABASE_URL!: string;
 
+  // Segredos de assinatura: mínimo de 32 chars pra ter entropia suficiente
+  // (um segredo curto derruba toda a autenticação / validação de webhook).
   @IsString()
-  @IsNotEmpty()
+  @MinLength(32, { message: 'JWT_SECRET deve ter ao menos 32 caracteres.' })
   JWT_SECRET!: string;
 
   @IsString()
-  @IsNotEmpty()
+  @MinLength(32, {
+    message: 'MERCADOPAGO_WEBHOOK_SECRET deve ter ao menos 32 caracteres.',
+  })
   MERCADOPAGO_WEBHOOK_SECRET!: string;
 
   // Credenciais OAuth da aplicação (marketplace). Sem elas, Pix cai no gateway mock.

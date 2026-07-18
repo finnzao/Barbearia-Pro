@@ -1,0 +1,10 @@
+# HTTPS automático (Let's Encrypt) — troque os domínios pelos reais.
+# O Caddy é o único exposto na internet (80/443); api e web ficam na rede interna.
+
+{$DOMAIN_APP} {
+	reverse_proxy web:3000
+}
+
+{$DOMAIN_API} {
+	reverse_proxy api:3333
+}

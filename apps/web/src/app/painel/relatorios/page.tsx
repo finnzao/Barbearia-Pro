@@ -31,12 +31,14 @@ const ABAS_PERIODO = [
   { id: "dia", label: "Hoje" },
   { id: "semana", label: "Semana" },
   { id: "mes", label: "Mês" },
+  { id: "ano", label: "Ano" },
 ];
 
 const SUB_PERIODO: Record<Periodo, string> = {
   dia: "no dia de hoje",
   semana: "na semana",
   mes: "no mês",
+  ano: "no ano",
 };
 
 const NOME_DIA: Record<string, string> = {

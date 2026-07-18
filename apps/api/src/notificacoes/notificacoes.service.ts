@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { TipoNotificacao } from '@prisma/client';
+import { StatusAgendamento, TipoNotificacao } from '@prisma/client';
 import { formatarLocal, horaLocal } from '../common/timezone';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface DadosAgendamento {
   inicio: Date;
+  status?: StatusAgendamento;
   servico?: { nome: string } | null;
   barbearia: { nome: string; fuso: string };
 }
@@ -19,7 +20,11 @@ export function montarTexto(
   const nome = dados.barbearia.nome;
   switch (tipo) {
     case 'confirmacao':
-      return `${nome}: agendamento confirmado para ${quando} (${servico}).`;
+      // Agendamento pelo link do cliente nasce pendente: prometer "confirmado"
+      // faria o cliente aparecer num horário que a barbearia ainda não aceitou.
+      return dados.status === StatusAgendamento.pendente
+        ? `${nome}: recebemos seu pedido para ${quando} (${servico}). Avisamos assim que a barbearia confirmar.`
+        : `${nome}: agendamento confirmado para ${quando} (${servico}).`;
     case 'lembrete':
       return `${nome}: lembrete do seu agendamento em ${quando} (${servico}). Até já!`;
     case 'cancelamento':

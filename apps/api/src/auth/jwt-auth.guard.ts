@@ -34,19 +34,28 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token de acesso ausente.');
     }
 
+    let payload: JwtPayload;
     try {
-      const payload = await this.jwt.verifyAsync<JwtPayload>(token, {
+      payload = await this.jwt.verifyAsync<JwtPayload>(token, {
         secret: this.config.jwtSecret,
       });
-      request.user = {
-        id: payload.sub,
-        barbeariaId: payload.barbeariaId,
-        papel: payload.papel,
-        profissionalId: payload.profissionalId,
-      };
     } catch {
       throw new UnauthorizedException('Token de acesso inválido.');
     }
+
+    // Guard de staff: só aceita token com papel. O token de cliente (público) é
+    // assinado com o mesmo segredo mas não tem papel — rejeitar impede que um
+    // cliente autenticado alcance rotas de painel sem @Roles.
+    if (payload.tipo === 'cliente' || !payload.papel) {
+      throw new UnauthorizedException('Token de acesso inválido.');
+    }
+
+    request.user = {
+      id: payload.sub,
+      barbeariaId: payload.barbeariaId,
+      papel: payload.papel,
+      profissionalId: payload.profissionalId,
+    };
 
     return true;
   }

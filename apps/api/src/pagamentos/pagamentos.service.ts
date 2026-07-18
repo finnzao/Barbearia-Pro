@@ -179,6 +179,8 @@ export class PagamentosService {
         xRequestId: input.xRequestId,
         dataId: input.orderId,
         secret: this.config.mercadoPagoWebhookSecret,
+        // Rejeita notificações antigas reapresentadas (anti-replay); 5 min.
+        toleranceSeconds: 300,
       });
     } catch {
       throw new UnauthorizedException('Assinatura do webhook inválida.');

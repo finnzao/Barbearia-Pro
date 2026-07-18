@@ -1,0 +1,10 @@
+# Nunca copiar pro contexto de build: quebra o pnpm install e incha a imagem.
+**/node_modules
+**/dist
+**/.next
+**/coverage
+.git
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log

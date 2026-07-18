@@ -14,11 +14,12 @@ const PROFISSIONAIS = [
 ];
 
 const SERVICOS = [
+  // Duração em múltiplos de 30 min (o passo da grade) — ver common/agenda.ts.
   { id: "0a1b2c3d-0000-4000-8000-000000000031", nome: "Corte de cabelo", duracaoMin: 30, precoCentavos: 4000 },
-  { id: "0a1b2c3d-0000-4000-8000-000000000032", nome: "Barba", duracaoMin: 20, precoCentavos: 3000 },
-  { id: "0a1b2c3d-0000-4000-8000-000000000033", nome: "Corte e barba", duracaoMin: 50, precoCentavos: 6500 },
-  { id: "0a1b2c3d-0000-4000-8000-000000000034", nome: "Sobrancelha", duracaoMin: 10, precoCentavos: 1500 },
-  { id: "0a1b2c3d-0000-4000-8000-000000000035", nome: "Pezinho", duracaoMin: 10, precoCentavos: 1200 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000032", nome: "Barba", duracaoMin: 30, precoCentavos: 3000 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000033", nome: "Corte e barba", duracaoMin: 60, precoCentavos: 6500 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000034", nome: "Sobrancelha", duracaoMin: 30, precoCentavos: 1500 },
+  { id: "0a1b2c3d-0000-4000-8000-000000000035", nome: "Pezinho", duracaoMin: 30, precoCentavos: 1200 },
 ];
 
 const HORARIOS = [1, 2, 3, 4, 5].map((diaSemana, indice) => ({

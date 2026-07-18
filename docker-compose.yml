@@ -1,4 +1,62 @@
+# Stack de produção completa (deploy numa VPS). Sobe com: docker compose up -d --build
+# Variáveis vêm do .env na raiz (POSTGRES_PASSWORD, DOMAIN_*) — ver .env.prod.example.
+# Segredos da API ficam em apps/api/.env. Ver DEPLOY.md para o go-live.
+
 services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: naregua
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: naregua
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - naregua
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U naregua"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      # Segredos: JWT_SECRET, CIFRA_SEGREDO, MERCADOPAGO_*.
+      - ./apps/api/.env
+    environment:
+      # Sobrescreve com hostnames de container e flags de produção.
+      NODE_ENV: production
+      TRUST_PROXY: "1"
+      PORT: "3333"
+      DATABASE_URL: postgresql://naregua:${POSTGRES_PASSWORD}@postgres:5432/naregua?schema=public
+      WEB_ORIGIN: https://${DOMAIN_APP}
+      WHATSAPP_API_URL: http://whatsapp:4000
+      # Precisa bater com o do container whatsapp, senão o envio toma 401.
+      WHATSAPP_API_TOKEN: ${WHATSAPP_API_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - naregua
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Embutido no bundle do cliente (build-time) — domínio público da API.
+        NEXT_PUBLIC_API_URL: https://${DOMAIN_API}/api
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - naregua
+
   # Container isolado do WhatsApp (Baileys). Sessão única vinculada por QR.
   whatsapp:
     build: ./apps/whatsapp
@@ -7,13 +65,12 @@ services:
       - path: ./apps/whatsapp/.env
         required: false
     environment:
-      # API roda no host enquanto não há Dockerfile dela; trocar por http://api:3333 quando containerizar.
-      WEBHOOK_URL: http://host.docker.internal:3333/api/publico/whatsapp/status
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    # Porta privada: liga só em 127.0.0.1 do VPS — NÃO exposta na internet.
-    # Configuração (QR/status) é feita por túnel SSH: ssh -L 4000:localhost:4000 user@vps
-    # (ver apps/whatsapp/README.md). Esse bind é a fronteira de segurança da config.
+      WEBHOOK_URL: http://api:3333/api/publico/whatsapp/status
+      # Mesmo segredo da API: é o que autentica POST /mensagens entre os dois.
+      WHATSAPP_API_TOKEN: ${WHATSAPP_API_TOKEN}
+    # Porta privada: liga só em 127.0.0.1 da VPS — NÃO exposta na internet.
+    # Config (QR/status) por túnel SSH: ssh -L 4000:localhost:4000 user@vps
+    # (ver apps/whatsapp/README.md). Esse bind é a fronteira de segurança.
     ports:
       - "127.0.0.1:4000:4000"
     volumes:
@@ -27,9 +84,32 @@ services:
       retries: 3
       start_period: 10s
 
+  # Reverse proxy + HTTPS automático (Let's Encrypt). Único exposto na internet.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN_APP: ${DOMAIN_APP}
+      DOMAIN_API: ${DOMAIN_API}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+    networks:
+      - naregua
+
 volumes:
-  # Credenciais da sessão: tratar como segredo, manter no backup.
+  pg_data:
+  # Credenciais da sessão do WhatsApp: tratar como segredo, manter no backup.
   whatsapp_auth:
+  caddy_data:
+  caddy_config:
 
 networks:
   naregua:

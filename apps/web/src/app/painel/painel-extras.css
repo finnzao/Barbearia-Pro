@@ -249,6 +249,16 @@
 .pn-shell .horario-row:last-child {
   border-bottom: none;
 }
+/* Pausa é sub-linha do dia: recuada e sem borda, para ler como filha dele. */
+.pn-shell .horario-row--pausa {
+  padding: 0 0 10px 16px;
+  border-bottom: none;
+}
+.pn-shell .horario-row__pausa-label {
+  font-weight: 400;
+  color: var(--pn-ink-2, var(--pn-ink));
+  font-size: 13px;
+}
 .pn-shell .horario-row__dia {
   font-weight: 600;
   font-size: 14px;

@@ -30,14 +30,14 @@ WHERE b.slug = 'barbearia-teste'
     WHERE p.barbearia_id = b.id AND p.apelido = 'João Teste'
   );
 
--- Usuário DONO (chave: barbearia_id + email; UPDATE refresca a senha)
+-- Usuário DONO (chave: email global; UPDATE refresca a senha)
 INSERT INTO usuario (barbearia_id, email, senha_hash, papel)
 SELECT id,
        'dono@teste.com',
        '$argon2id$v=19$m=65536,t=3,p=4$G12Goj3EZWgveLZiPwKTlw$6UR9ZJuHxKS+/R8D7K9x5C4fnIpFOI5wfu4K2j/CX5Y',
        'dono'
 FROM barbearia WHERE slug = 'barbearia-teste'
-ON CONFLICT (barbearia_id, email)
+ON CONFLICT (email)
 DO UPDATE SET senha_hash = EXCLUDED.senha_hash, papel = EXCLUDED.papel;
 
 -- Usuário FUNCIONÁRIO (papel profissional, ligado ao profissional acima)
@@ -50,7 +50,7 @@ SELECT b.id,
 FROM barbearia b
 JOIN profissional p ON p.barbearia_id = b.id AND p.apelido = 'João Teste'
 WHERE b.slug = 'barbearia-teste'
-ON CONFLICT (barbearia_id, email)
+ON CONFLICT (email)
 DO UPDATE SET senha_hash = EXCLUDED.senha_hash,
               profissional_id = EXCLUDED.profissional_id,
               papel = EXCLUDED.papel;

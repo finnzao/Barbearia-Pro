@@ -15,5 +15,19 @@
   "devDependencies": {
     "turbo": "^2.3.0"
   },
+  "pnpm": {
+    "overrides": {
+      "multer@>=2.0.0-alpha.1 <2.2.0": ">=2.2.0"
+    },
+    "auditConfig": {
+      "//": "Aceitas: não estão no runtime da API. baileys (music-metadata/file-type) roda no container WhatsApp isolado (loopback), processando mídia de sessão confiável; bumpar quebra o baileys. postcss vem do next (build-time). O CI falha em vulns NOVAS.",
+      "ignoreGhsas": [
+        "GHSA-v6c2-xwv6-8xf7",
+        "GHSA-5v7r-6r5c-r473",
+        "GHSA-qx2v-qp2m-jg93",
+        "GHSA-w5hq-g745-h8pq"
+      ]
+    }
+  },
   "packageManager": "pnpm@9.12.0"
 }

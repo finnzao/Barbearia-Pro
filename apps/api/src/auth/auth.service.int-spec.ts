@@ -53,6 +53,15 @@ describe('AuthService (integração)', () => {
     await expect(auth.registrar(cadastro)).rejects.toThrow();
   });
 
+  // V-09: e-mail é globalmente único — mesmo e-mail em outra barbearia é barrado,
+  // então o login por e-mail nunca fica ambíguo.
+  it('rejeita o mesmo e-mail em outra barbearia (e-mail global)', async () => {
+    await auth.registrar(cadastro);
+    await expect(
+      auth.registrar({ ...cadastro, slug: 'outra', nomeBarbearia: 'Outra' }),
+    ).rejects.toThrow();
+  });
+
   it('login aceita credencial válida e rejeita inválida', async () => {
     await auth.registrar(cadastro);
 
@@ -69,6 +78,42 @@ describe('AuthService (integração)', () => {
     ).rejects.toThrow();
   });
 
+  it('trava a conta após 10 falhas e a senha certa passa a ser rejeitada', async () => {
+    await auth.registrar(cadastro);
+
+    for (let i = 0; i < 10; i++) {
+      await expect(
+        auth.login({ email: 'dono@demo.com', senha: 'errada' }),
+      ).rejects.toThrow();
+    }
+
+    // Mesmo com a senha correta, a conta está bloqueada.
+    await expect(
+      auth.login({ email: 'dono@demo.com', senha: 'Senha@123' }),
+    ).rejects.toThrow(/bloqueada/i);
+
+    const u = await prismaTeste().usuario.findFirst({
+      where: { email: 'dono@demo.com' },
+    });
+    expect(u?.loginFalhas).toBeGreaterThanOrEqual(10);
+    expect(u?.bloqueadoAte).not.toBeNull();
+  });
+
+  it('login bem-sucedido zera o contador de falhas', async () => {
+    await auth.registrar(cadastro);
+    await expect(
+      auth.login({ email: 'dono@demo.com', senha: 'errada' }),
+    ).rejects.toThrow();
+
+    await auth.login({ email: 'dono@demo.com', senha: 'Senha@123' });
+
+    const u = await prismaTeste().usuario.findFirst({
+      where: { email: 'dono@demo.com' },
+    });
+    expect(u?.loginFalhas).toBe(0);
+    expect(u?.bloqueadoAte).toBeNull();
+  });
+
   it('refresh rotaciona e refresh revogado não autentica', async () => {
     const { refreshToken } = await auth.registrar(cadastro);
 
@@ -76,6 +121,15 @@ describe('AuthService (integração)', () => {
     expect(renovado.refreshToken).not.toBe(refreshToken);
 
     await expect(auth.refresh(refreshToken)).rejects.toThrow();
+  });
+
+  it('reuso de refresh revogado derruba toda a família de tokens', async () => {
+    const { refreshToken } = await auth.registrar(cadastro);
+    const renovado = await auth.refresh(refreshToken); // revoga o 1º, emite o 2º
+
+    // Reapresentar o 1º (revogado) deve invalidar também o 2º (resposta a roubo).
+    await expect(auth.refresh(refreshToken)).rejects.toThrow();
+    await expect(auth.refresh(renovado.refreshToken)).rejects.toThrow();
   });
 
   it('logout revoga o refresh token', async () => {

@@ -107,24 +107,30 @@ export function getResumo(slug: string): Promise<BarbeariaPublica> {
 export function getServicosPublico(slug: string): Promise<ServicoPublico[]> {
   return get(`/publico/${slug}/servicos`);
 }
+// servicoId presente => só quem atende aquele serviço.
 export function getProfissionaisPublico(
   slug: string,
+  servicoId?: string,
 ): Promise<ProfissionalPublico[]> {
-  return get(`/publico/${slug}/profissionais`);
+  const q = servicoId ? `?servicoId=${servicoId}` : "";
+  return get(`/publico/${slug}/profissionais${q}`);
 }
+// Sem servicoId (barbearia define o serviço no balcão) a grade usa o passo padrão.
 export function getHorariosPublico(
   slug: string,
   data: string,
-  servicoId: string,
+  servicoId?: string,
   profissionalId?: string,
 ): Promise<{ hora: string }[]> {
-  const p = profissionalId ? `&profissionalId=${profissionalId}` : "";
-  return get(`/publico/${slug}/horarios?data=${data}&servicoId=${servicoId}${p}`);
+  const params = new URLSearchParams({ data });
+  if (servicoId) params.set("servicoId", servicoId);
+  if (profissionalId) params.set("profissionalId", profissionalId);
+  return get(`/publico/${slug}/horarios?${params}`);
 }
 export function agendarPublico(
   slug: string,
   dto: {
-    servicoId: string;
+    servicoId?: string;
     profissionalId?: string;
     data: string;
     hora: string;

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Button, Input } from "@/ds/components";
 import { useLocalStorage, useMontado } from "@/lib/client-hooks";
+import { normalizarTelefone, PAIS_PADRAO, telefoneValido } from "@/lib/telefone";
 import {
   ApiError,
   cancelarAgendamentoCliente,
@@ -77,7 +78,7 @@ function Login({
     setErro(null);
     setCarregando(true);
     try {
-      const r = await solicitarOtp(slug, whatsapp.trim());
+      const r = await solicitarOtp(slug, normalizarTelefone(whatsapp));
       setEnviado(true);
       setDicaCodigo(r.codigo ?? null);
     } catch (e) {
@@ -93,8 +94,8 @@ function Login({
     try {
       const sessao =
         modo === "otp"
-          ? await loginOtp(slug, whatsapp.trim(), codigo.trim())
-          : await loginSenha(slug, whatsapp.trim(), senha);
+          ? await loginOtp(slug, normalizarTelefone(whatsapp), codigo.trim())
+          : await loginSenha(slug, normalizarTelefone(whatsapp), senha);
       aoEntrar(sessao);
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : "Não foi possível entrar.");
@@ -116,9 +117,12 @@ function Login({
         {erro && <div className="pb-erro">{erro}</div>}
         <Input
           label="WhatsApp"
+          type="tel"
+          inputMode="tel"
+          prefix={`${PAIS_PADRAO.flag} ${PAIS_PADRAO.ddi}`}
           value={whatsapp}
           onChange={(e) => setWhatsapp(e.target.value)}
-          placeholder="11999990000"
+          placeholder="(11) 98765-4321"
         />
 
         {modo === "otp" ? (
@@ -127,7 +131,7 @@ function Login({
               <Button
                 fullWidth
                 loading={carregando}
-                disabled={whatsapp.trim().length < 8 || carregando}
+                disabled={!telefoneValido(whatsapp) || carregando}
                 onClick={enviarCodigo}
               >
                 Enviar código

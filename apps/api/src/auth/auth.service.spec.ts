@@ -14,8 +14,11 @@ const config = {
 
 function prismaMock(): PrismaService {
   return {
-    usuario: { findFirst: jest.fn() },
+    usuario: { findUnique: jest.fn(), update: jest.fn() },
     refreshToken: { create: jest.fn().mockResolvedValue({}) },
+    barbearia: {
+      findUnique: jest.fn().mockResolvedValue({ slug: 'barb-slug' }),
+    },
   } as unknown as PrismaService;
 }
 
@@ -28,11 +31,13 @@ describe('AuthService (unit)', () => {
 
   it('login emite JWT com payload correto', async () => {
     const prisma = prismaMock();
-    (prisma.usuario.findFirst as jest.Mock).mockResolvedValue({
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValue({
       id: 'user-1',
       barbeariaId: 'barb-1',
       papel: PapelUsuario.profissional,
       profissionalId: 'prof-1',
+      loginFalhas: 0,
+      bloqueadoAte: null,
       senhaHash: await argon2.hash('Senha@123'),
     });
 
@@ -50,15 +55,19 @@ describe('AuthService (unit)', () => {
       profissionalId: 'prof-1',
     });
     expect(resultado.refreshToken).toEqual(expect.any(String));
+    // O painel monta o link público (/agendar/:slug) a partir daqui.
+    expect(resultado.usuario.barbeariaSlug).toBe('barb-slug');
   });
 
   it('login rejeita senha incorreta', async () => {
     const prisma = prismaMock();
-    (prisma.usuario.findFirst as jest.Mock).mockResolvedValue({
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValue({
       id: 'u',
       barbeariaId: 'b',
       papel: PapelUsuario.dono,
       profissionalId: null,
+      loginFalhas: 0,
+      bloqueadoAte: null,
       senhaHash: await argon2.hash('correta'),
     });
 

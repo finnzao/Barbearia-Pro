@@ -30,6 +30,7 @@ export class AgendamentosService {
   private readonly include = {
     profissional: { select: { apelido: true } },
     servico: { select: { nome: true } },
+    cliente: { select: { whatsapp: true } },
   };
 
   listar(filtros: ListarAgendamentosDto) {
@@ -100,7 +101,8 @@ export class AgendamentosService {
     }
   }
 
-  // Cancelou? avisa cancelamento. Mudou o início? avisa remarcação.
+  // Cancelou? avisa cancelamento. Aprovou um pendente? avisa a confirmação.
+  // Mudou o início? avisa remarcação.
   private async avisarMudanca(
     id: string,
     atual: { status: string; inicio: Date },
@@ -108,6 +110,9 @@ export class AgendamentosService {
   ) {
     if (dto.status === 'cancelado' && atual.status !== 'cancelado') {
       await this.notificacoes.notificarAgendamento(id, 'cancelamento');
+    } else if (dto.status === 'confirmado' && atual.status === 'pendente') {
+      // O pedido pelo link avisou "vamos confirmar" — este é o aviso prometido.
+      await this.notificacoes.notificarAgendamento(id, 'confirmacao');
     } else if (
       dto.inicio &&
       new Date(dto.inicio).getTime() !== atual.inicio.getTime()

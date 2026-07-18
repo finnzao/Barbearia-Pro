@@ -55,12 +55,25 @@ create table config_barbearia (
 );
 
 create table horario_funcionamento (
-  id           uuid primary key default gen_random_uuid(),
-  barbearia_id uuid not null references barbearia(id) on delete cascade,
-  dia_semana   smallint not null check (dia_semana between 0 and 6),
-  abre         time not null,
-  fecha        time not null,
-  check (fecha > abre)
+  id            uuid primary key default gen_random_uuid(),
+  barbearia_id  uuid not null references barbearia(id) on delete cascade,
+  dia_semana    smallint not null check (dia_semana between 0 and 6),
+  abre          time not null,
+  fecha         time not null,
+  -- Pausa diária (almoço): ou os dois nulos, ou os dois preenchidos dentro do
+  -- expediente. É recorrente por dia da semana — bloqueio pontual é outra coisa
+  -- (tabela bloqueio).
+  pausa_inicio  time,
+  pausa_fim     time,
+  check (fecha > abre),
+  check (
+    (pausa_inicio is null and pausa_fim is null)
+    or (
+      pausa_inicio is not null and pausa_fim is not null
+      and pausa_fim > pausa_inicio
+      and pausa_inicio >= abre and pausa_fim <= fecha
+    )
+  )
 );
 create index on horario_funcionamento (barbearia_id, dia_semana);
 
@@ -114,8 +127,10 @@ create table usuario (
   email           text not null,
   senha_hash      text not null,
   papel           papel_usuario not null default 'dono',
+  login_falhas    integer not null default 0,
+  bloqueado_ate   timestamptz,
   criado_em       timestamptz not null default now(),
-  unique (barbearia_id, email)
+  unique (email)
 );
 
 create table refresh_token (

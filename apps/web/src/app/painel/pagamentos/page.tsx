@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Glyph } from "@/app/painel/glyphs";
-import { Avatar, Badge, Btn, Card, Money, Modal, Row, Seg, Select, brl, pct } from "@/app/painel/ui";
+import { Avatar, Badge, Btn, Card, Field, Money, Modal, Row, Seg, Select, brl, pct } from "@/app/painel/ui";
 import { MercadoPagoCard } from "@/app/painel/mercadopago-card";
 import {
   criarPagamento,
@@ -53,7 +53,13 @@ const ABAS_PERIODO = [
   { id: "dia", label: "Hoje" },
   { id: "semana", label: "Semana" },
   { id: "mes", label: "Mês" },
+  { id: "ano", label: "Ano" },
+  { id: "custom", label: "Período" },
 ];
+
+// "custom" não é um Periodo real: quando ativo, o intervalo vem dos dois campos de data.
+type PeriodoAba = Periodo | "custom";
+const hojeISO = () => new Date().toISOString().slice(0, 10);
 const MODOS = [
   { value: "imediato", label: "Imediato (split no pagamento)" },
   { value: "periodico", label: "Periódico (calendário)" },
@@ -124,7 +130,8 @@ export default function Pagamentos() {
         : null;
   const [abaEscolhida, setAba] = useState<string | null>(null);
   const aba = abaEscolhida ?? abaDoHash ?? "pagamentos";
-  const [periodo, setPeriodo] = useState<Periodo>("dia");
+  const [periodo, setPeriodo] = useState<PeriodoAba>("dia");
+  const [custom, setCustom] = useState({ de: hojeISO(), ate: hojeISO() });
   const [pags, setPags] = useState<Pagamento[]>([]);
   const [profs, setProfs] = useState<Profissional[]>([]);
   const [servs, setServs] = useState<Servico[]>([]);
@@ -154,13 +161,16 @@ export default function Pagamentos() {
       .catch(() => {});
   }, []);
 
-  // Comissões vêm da API real, filtradas pelo período selecionado (dia/semana/mês).
+  // Comissões vêm da API real, filtradas pelo período selecionado. "custom" usa o
+  // intervalo dos campos de data; os demais são atalhos (hoje/semana/mês/ano).
   useEffect(() => {
-    const { de, ate } = intervaloPeriodo(periodo);
+    const { de, ate } =
+      periodo === "custom" ? custom : intervaloPeriodo(periodo);
+    if (de > ate) return; // intervalo invertido: espera o usuário ajustar
     getComissoes({ de, ate })
       .then(setComissoes)
       .catch(() => setComissoes([]));
-  }, [periodo]);
+  }, [periodo, custom]);
 
   const ajustarCfg = (patch: Partial<ConfigRepasse>) => {
     // o setter do useLocalStorage já persiste (mesmo formato do salvarRepasse).
@@ -215,6 +225,8 @@ export default function Pagamentos() {
   const totalFaturado = comissoes.reduce((s, c) => s + c.faturado, 0);
   const totalComissao = comissoes.reduce((s, c) => s + c.comissao, 0);
   const totalLiquido = comissoes.reduce((s, c) => s + c.liquidoBarbearia, 0);
+  const totalAtendimentos = comissoes.reduce((s, c) => s + c.atendimentos, 0);
+  const ticketMedio = totalAtendimentos > 0 ? Math.round(totalFaturado / totalAtendimentos) : 0;
 
   const pendenciasBrutas = pendenciasRepasse(cfg.modo, pags, profs);
   const pendencias = pendenciasBrutas.filter((p) => p.liquido > 0 && !repassados.has(p.profissionalId));
@@ -333,7 +345,25 @@ export default function Pagamentos() {
           action={<Money value={totalComissao} size="md" />}
           footer="Comissão = pagamentos pagos × a taxa congelada de cada um. Líquido da barbearia = faturado − comissões."
         >
-          <Seg items={ABAS_PERIODO} value={periodo} onChange={(id) => setPeriodo(id as Periodo)} />
+          <Seg items={ABAS_PERIODO} value={periodo} onChange={(id) => setPeriodo(id as PeriodoAba)} />
+          {periodo === "custom" && (
+            <div className="pn-rowline" style={{ gap: 12 }}>
+              <Field
+                label="De"
+                type="date"
+                value={custom.de}
+                max={custom.ate}
+                onChange={(e) => setCustom((c) => ({ ...c, de: e.target.value }))}
+              />
+              <Field
+                label="Até"
+                type="date"
+                value={custom.ate}
+                min={custom.de}
+                onChange={(e) => setCustom((c) => ({ ...c, ate: e.target.value }))}
+              />
+            </div>
+          )}
           <div className="pn-sumstrip">
             <div className="pn-sum">
               <span className="pn-sum__lbl">Faturado</span>
@@ -346,6 +376,14 @@ export default function Pagamentos() {
             <div className="pn-sum">
               <span className="pn-sum__lbl">Líquido da barbearia</span>
               <div className="pn-sum__num pn-sum__num--accent">{brl(totalLiquido)}</div>
+            </div>
+            <div className="pn-sum">
+              <span className="pn-sum__lbl">Atendimentos</span>
+              <div className="pn-sum__num">{totalAtendimentos}</div>
+            </div>
+            <div className="pn-sum">
+              <span className="pn-sum__lbl">Ticket médio</span>
+              <div className="pn-sum__num">{brl(ticketMedio)}</div>
             </div>
           </div>
           <div className="pn-list">

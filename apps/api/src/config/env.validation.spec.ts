@@ -2,8 +2,8 @@ import { validateEnv } from './env.validation';
 
 const completo = {
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/db?schema=public',
-  JWT_SECRET: 'segredo',
-  MERCADOPAGO_WEBHOOK_SECRET: 'webhook',
+  JWT_SECRET: 's'.repeat(32),
+  MERCADOPAGO_WEBHOOK_SECRET: 'w'.repeat(32),
   CIFRA_SEGREDO: 'a'.repeat(64),
 };
 
@@ -34,6 +34,12 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({ ...completo, MERCADOPAGO_WEBHOOK_SECRET: '' }),
     ).toThrow(/MERCADOPAGO_WEBHOOK_SECRET/);
+  });
+
+  it('rejeita JWT_SECRET com menos de 32 caracteres', () => {
+    expect(() => validateEnv({ ...completo, JWT_SECRET: 'curto' })).toThrow(
+      /JWT_SECRET/,
+    );
   });
 
   it('aceita ambiente sem credenciais OAuth do MP (cai no gateway mock)', () => {

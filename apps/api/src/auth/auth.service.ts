@@ -13,6 +13,15 @@ import { LoginDto } from './dto/login.dto';
 import { RegistrarDto } from './dto/registrar.dto';
 import { JwtPayload } from './jwt-payload';
 
+// Lockout por conta: além do throttle por IP (5/min), trava a conta após N
+// falhas para conter brute force distribuído por vários IPs.
+const MAX_FALHAS_LOGIN = 10;
+const BLOQUEIO_MS = 15 * 60_000;
+// Hash argon2 descartável, usado quando o e-mail não existe, para o login gastar
+// o mesmo tempo em qualquer caso (evita enumeração de e-mail por timing).
+const HASH_DUMMY =
+  '$argon2id$v=19$m=65536,t=3,p=4$Htt1Wl/tJAsN2Cl3vjwBpw$VEWsbGIxOHpzk91mC0aF6NyV435VcNBdj0Bxr1qrW9M';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -59,20 +68,54 @@ export class AuthService {
   async login(dto: LoginDto) {
     const invalidas = new UnauthorizedException('Credenciais inválidas.');
 
-    const usuario = await this.prisma.usuario.findFirst({
+    // E-mail é globalmente único (V-09): resolve para no máximo um usuário.
+    const usuario = await this.prisma.usuario.findUnique({
       where: { email: dto.email },
-      orderBy: { criadoEm: 'asc' },
     });
-    if (!usuario) {
+
+    // Conta travada: rejeita sem nem verificar a senha (mensagem própria).
+    if (usuario?.bloqueadoAte && usuario.bloqueadoAte > new Date()) {
+      throw new UnauthorizedException(
+        'Conta temporariamente bloqueada por excesso de tentativas. Tente mais tarde.',
+      );
+    }
+
+    // Sempre roda um verify (hash real ou dummy) → tempo constante, sem oráculo
+    // de enumeração de e-mail.
+    const senhaOk = await argon2.verify(
+      usuario?.senhaHash ?? HASH_DUMMY,
+      dto.senha,
+    );
+
+    if (!usuario || !senhaOk) {
+      if (usuario) {
+        await this.registrarFalhaLogin(usuario.id, usuario.loginFalhas);
+      }
       throw invalidas;
     }
 
-    const senhaOk = await argon2.verify(usuario.senhaHash, dto.senha);
-    if (!senhaOk) {
-      throw invalidas;
+    if (usuario.loginFalhas > 0 || usuario.bloqueadoAte) {
+      await this.prisma.usuario.update({
+        where: { id: usuario.id },
+        data: { loginFalhas: 0, bloqueadoAte: null },
+      });
     }
 
     return this.emitirTokens(usuario);
+  }
+
+  private async registrarFalhaLogin(usuarioId: string, falhasAtuais: number) {
+    const falhas = falhasAtuais + 1;
+    await this.prisma.usuario.update({
+      where: { id: usuarioId },
+      data: {
+        loginFalhas: falhas,
+        bloqueadoAte:
+          falhas >= MAX_FALHAS_LOGIN
+            ? new Date(Date.now() + BLOQUEIO_MS)
+            : undefined,
+      },
+    });
   }
 
   async refresh(refreshToken: string) {
@@ -84,7 +127,17 @@ export class AuthService {
       include: { usuario: true },
     });
 
-    if (!registro || registro.revogadoEm || registro.expiraEm < new Date()) {
+    // Reuso de um token já revogado é sinal de roubo: revoga TODA a família de
+    // tokens do usuário (o legítimo é forçado a logar de novo, o ladrão fica fora).
+    if (registro?.revogadoEm) {
+      await this.prisma.refreshToken.updateMany({
+        where: { usuarioId: registro.usuarioId, revogadoEm: null },
+        data: { revogadoEm: new Date() },
+      });
+      throw invalido;
+    }
+
+    if (!registro || registro.expiraEm < new Date()) {
       throw invalido;
     }
 
@@ -116,13 +169,21 @@ export class AuthService {
     const accessToken = await this.jwt.signAsync(payload);
     const refreshToken = randomBytes(48).toString('base64url');
 
-    await this.prisma.refreshToken.create({
-      data: {
-        usuarioId: usuario.id,
-        tokenHash: this.hashRefresh(refreshToken),
-        expiraEm: new Date(Date.now() + this.config.refreshTtlMs),
-      },
-    });
+    // O slug identifica o link público da barbearia (/agendar/:slug) — o painel
+    // precisa dele para mostrar e compartilhar o link do cliente.
+    const [barbearia] = await Promise.all([
+      this.prisma.barbearia.findUnique({
+        where: { id: usuario.barbeariaId },
+        select: { slug: true },
+      }),
+      this.prisma.refreshToken.create({
+        data: {
+          usuarioId: usuario.id,
+          tokenHash: this.hashRefresh(refreshToken),
+          expiraEm: new Date(Date.now() + this.config.refreshTtlMs),
+        },
+      }),
+    ]);
 
     return {
       accessToken,
@@ -130,6 +191,7 @@ export class AuthService {
       usuario: {
         id: usuario.id,
         barbeariaId: usuario.barbeariaId,
+        barbeariaSlug: barbearia?.slug ?? null,
         papel: usuario.papel,
         profissionalId: usuario.profissionalId,
       },

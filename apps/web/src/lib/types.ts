@@ -18,7 +18,7 @@ export type {
   TipoChavePix,
 };
 
-export type Periodo = "dia" | "semana" | "mes";
+export type Periodo = "dia" | "semana" | "mes" | "ano";
 
 export interface Profissional {
   id: string;
@@ -35,6 +35,10 @@ export interface Servico {
   nome: string;
   duracaoMin: number;
   preco: number;
+  // Inativo some do link público, mas continua no histórico.
+  ativo?: boolean;
+  // Quem executa. Vazio = todos — é como o agendamento público interpreta.
+  profissionalIds?: string[];
 }
 
 export interface Cliente {
@@ -83,6 +87,7 @@ export interface Agendamento {
   id: string;
   hora: string;
   cliente: string;
+  clienteWhatsapp?: string | null;
   servico: string;
   profissionalId: string;
   profissional: string;

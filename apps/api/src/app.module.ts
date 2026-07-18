@@ -5,6 +5,7 @@ import { AgendamentosModule } from './agendamentos/agendamentos.module';
 import { AppController } from './app.controller';
 import { AssinaturasModule } from './assinaturas/assinaturas.module';
 import { AuthModule } from './auth/auth.module';
+import { BloqueiosModule } from './bloqueios/bloqueios.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { ComissoesModule } from './comissoes/comissoes.module';
 import { LoggingMiddleware } from './common/logging.middleware';
@@ -33,6 +34,7 @@ import { TenantModule } from './tenant/tenant.module';
     ProfissionaisModule,
     ClientesModule,
     AgendamentosModule,
+    BloqueiosModule,
     AssinaturasModule,
     PagamentosModule,
     ComissoesModule,

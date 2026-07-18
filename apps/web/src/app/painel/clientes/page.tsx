@@ -15,6 +15,7 @@ import {
   usarPlano,
 } from "@/lib/api";
 import type { AssinaturaCliente, Cliente, MetodoCobranca, Plano, UsoAssinatura } from "@/lib/types";
+import { formatarTelefone, normalizarTelefone, PAIS_PADRAO, telefoneValido } from "@/lib/telefone";
 
 const FORM_VAZIO = { nome: "", whatsapp: "" };
 
@@ -36,7 +37,7 @@ export default function Clientes() {
       .catch(() => setLista([]));
   }, []);
 
-  const valido = form.nome.trim() !== "" && /^\+?[0-9]{8,15}$/.test(form.whatsapp.trim());
+  const valido = form.nome.trim() !== "" && telefoneValido(form.whatsapp);
 
   const fechar = () => {
     setAberto(false);
@@ -49,7 +50,7 @@ export default function Clientes() {
     try {
       const novo = await criarCliente({
         nome: form.nome.trim(),
-        whatsapp: form.whatsapp.trim(),
+        whatsapp: normalizarTelefone(form.whatsapp),
       });
       setLista((atual) => [...atual, novo]);
       fechar();
@@ -75,7 +76,7 @@ export default function Clientes() {
               key={c.id}
               leading={<span style={{ color: "var(--brass-600)" }}><Icon name="user" size={20} /></span>}
               title={c.nome}
-              subtitle={c.whatsapp}
+              subtitle={formatarTelefone(c.whatsapp)}
               trailing={
                 <IconButton label="Assinatura" variant="ghost" size="sm" onClick={() => setClienteAssinatura(c)}>
                   <Icon name="banknote" size={18} />
@@ -108,7 +109,10 @@ export default function Clientes() {
         <Input
           label="WhatsApp"
           required
-          placeholder="11999998888"
+          type="tel"
+          inputMode="tel"
+          prefix={`${PAIS_PADRAO.flag} ${PAIS_PADRAO.ddi}`}
+          placeholder="(11) 98765-4321"
           value={form.whatsapp}
           onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
         />
