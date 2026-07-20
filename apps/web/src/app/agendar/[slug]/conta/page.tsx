@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Button, Input } from "@/ds/components";
 import { useLocalStorage, useMontado } from "@/lib/client-hooks";
-import { normalizarTelefone, PAIS_PADRAO, telefoneValido } from "@/lib/telefone";
+import { mascaraTelefone, normalizarTelefone, PAIS_PADRAO, telefoneValido } from "@/lib/telefone";
 import {
   ApiError,
   cancelarAgendamentoCliente,
@@ -121,7 +121,7 @@ function Login({
           inputMode="tel"
           prefix={`${PAIS_PADRAO.flag} ${PAIS_PADRAO.ddi}`}
           value={whatsapp}
-          onChange={(e) => setWhatsapp(e.target.value)}
+          onChange={(e) => setWhatsapp(mascaraTelefone(e.target.value))}
           placeholder="(11) 98765-4321"
         />
 

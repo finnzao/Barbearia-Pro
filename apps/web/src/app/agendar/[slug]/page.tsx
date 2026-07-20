@@ -5,7 +5,8 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button, Input } from "@/ds/components";
 import { formatBRL } from "@/lib/money";
-import { normalizarTelefone, PAIS_PADRAO, telefoneValido } from "@/lib/telefone";
+import { mascaraTelefone, normalizarTelefone, PAIS_PADRAO, telefoneValido } from "@/lib/telefone";
+import { nomeValido, semNumeros } from "@/lib/nome";
 import {
   agendarPublico,
   ApiError,
@@ -116,8 +117,7 @@ export default function AgendarPublico() {
     setPasso("horario");
   }
 
-  const podeConfirmar =
-    nome.trim().length >= 2 && telefoneValido(whatsapp);
+  const podeConfirmar = nomeValido(nome) && telefoneValido(whatsapp);
 
   async function confirmar() {
     setErro(null);
@@ -285,7 +285,7 @@ export default function AgendarPublico() {
             <Input
               label="Nome"
               value={nome}
-              onChange={(e) => setNome(e.target.value)}
+              onChange={(e) => setNome(semNumeros(e.target.value))}
               placeholder="Seu nome"
               required
             />
@@ -295,7 +295,7 @@ export default function AgendarPublico() {
               inputMode="tel"
               prefix={`${PAIS_PADRAO.flag} ${PAIS_PADRAO.ddi}`}
               value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
+              onChange={(e) => setWhatsapp(mascaraTelefone(e.target.value))}
               placeholder="(11) 98765-4321"
               required
             />

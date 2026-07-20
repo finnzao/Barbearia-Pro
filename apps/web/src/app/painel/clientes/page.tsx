@@ -15,7 +15,8 @@ import {
   usarPlano,
 } from "@/lib/api";
 import type { AssinaturaCliente, Cliente, MetodoCobranca, Plano, UsoAssinatura } from "@/lib/types";
-import { formatarTelefone, normalizarTelefone, PAIS_PADRAO, telefoneValido } from "@/lib/telefone";
+import { formatarTelefone, mascaraTelefone, normalizarTelefone, PAIS_PADRAO, telefoneValido } from "@/lib/telefone";
+import { nomeValido, semNumeros } from "@/lib/nome";
 
 const FORM_VAZIO = { nome: "", whatsapp: "" };
 
@@ -37,7 +38,7 @@ export default function Clientes() {
       .catch(() => setLista([]));
   }, []);
 
-  const valido = form.nome.trim() !== "" && telefoneValido(form.whatsapp);
+  const valido = nomeValido(form.nome) && telefoneValido(form.whatsapp);
 
   const fechar = () => {
     setAberto(false);
@@ -104,7 +105,7 @@ export default function Clientes() {
           required
           placeholder="Ex.: Maria Silva"
           value={form.nome}
-          onChange={(e) => setForm({ ...form, nome: e.target.value })}
+          onChange={(e) => setForm({ ...form, nome: semNumeros(e.target.value) })}
         />
         <Input
           label="WhatsApp"
@@ -114,7 +115,7 @@ export default function Clientes() {
           prefix={`${PAIS_PADRAO.flag} ${PAIS_PADRAO.ddi}`}
           placeholder="(11) 98765-4321"
           value={form.whatsapp}
-          onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+          onChange={(e) => setForm({ ...form, whatsapp: mascaraTelefone(e.target.value) })}
         />
       </Modal>
 
